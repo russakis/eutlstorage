@@ -157,6 +157,7 @@ def indholder(url): #function to handle the individual holder information plus t
         item = item.replace('\r', '')
         item = item.replace('\t', '')
         item = item.replace('\xa0', '')
+        item = item.replace('\"','\'')
         item = item.lstrip()
         #if item == '': print(newarr.index(tempitem))
         if item != '': thisnew.append(item.rstrip())
@@ -165,14 +166,16 @@ def indholder(url): #function to handle the individual holder information plus t
         thisnew[35]=thisnew[35].split('-')[0]#turning mainactivity to two character identifier
     else: thisnew[34]=thisnew[34].split('-')[0]#turning mainactivity to two character identifier
     thisnew[0]=countrydic[thisnew[0]]
-    thisnew[13]=countrydic[thisnew[13]]#turning country names to two character identifiers
+    try:
+        thisnew[13]=countrydic[thisnew[13]]#turning country names to two character identifiers
+    except:
+        print(thisnew[13],thisnew[12])
+        thisnew[13]="dq"
     holder =(holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email)=tuple([thisnew[i] for i in [2,4,8,9,10,11,12,13,14,15,16]])
     if titles[0][7:-7] == "Aircraft Operator Holding Account Information":
-        print("here comes the aeroplane")
         installation = (airname, airid, eccode, monitoringplan, monfirstyear,monfinalyear, subsidiary,parent,eprtr,callsign,firstyear,lastyear,address,address2,zipcode,city,country,latitude,longitude,mainactivityholder,status) \
             = tuple([thisnew[i] for i in [2,17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,35,5]])
     else:
-        print(thisnew)
         installation = (instname,instid, permitid,permitentrydate,permitexpirationdate,subsidiaryundertaking,parentundertaking,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status) \
             = tuple([thisnew[i] for i in [18,17,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,5]])
     return (holder,installation,len(installation)==21)#returns holder, installation, a boolean for isAircraft
@@ -185,10 +188,10 @@ def holderspage(url):
     reallinks = [templinks[1+i] for i in range(len(templinks)-1) if i%3==0]
     return reallinks
 
-def holdercontroller():
+def holdercontroller(countries,pagestosearch):#countries in list form, pagestosearch in list form unless you want them all
     accounts=[]
     holders=[]
-    for country in ['XI']:#countries[21:22]:
+    for country in countries:#countries[21:22]:
         print(country)
         try:
             pageno=0
@@ -199,15 +202,21 @@ def holdercontroller():
                                                  'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")
             # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
             pages = temp[0]['value']
-            print(country, pages)
-            for pageno in range(int(pages)):
+            pages=[i for i in range(int(pages))]
+            if pagestosearch!=[] or len(pagestosearch)<len(pages):
+                pages=pagestosearch
+            for pageno in pages:
+                print(pageno)
                 url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
                 holderlinks = holderspage(url)
                 #with the links we want to crawl these pages and store the individual information
                 for link in holderlinks:
-                    result,instresult,isAircraft = indholder(link)
-                    holders.append(result)
-                    accounts.append(instresult)
+                    result, instresult, isAircraft = indholder(link)
+                    code = holderaddition(result)
+                    if isAircraft:
+                        aircraftaddition(instresult, code)
+                    else:
+                        accountaddition(instresult, code)
                     #print(result)
         except IndexError:
             url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
@@ -215,8 +224,11 @@ def holdercontroller():
             # with the links we want to crawl these pages and store the individual information
             for link in holderlinks:
                 result,instresult,isAircraft = indholder(link)
-                holders.append(result)
-                accounts.append(instresult)
+                code = holderaddition(result)
+                if isAircraft:
+                    aircraftaddition(instresult,code)
+                else:
+                    accountaddition(instresult,code)
                 # print(result)
     return (holders,accounts)
         #for pageno in
@@ -234,21 +246,18 @@ def holderaddition(row):
     cursor.execute(query)
     result = cursor.fetchall()
     if result==[]:
-        print("result",result)
         wanted = [rawCode] + [row[i] for i in range(11)]
-        wantedstr = f"({wanted[0]},\'{wanted[1]}\',\'{wanted[2]}\',\'{wanted[3]}\',\'{wanted[4]}\',\'{wanted[5]}\',\'{wanted[6]}\',\'{wanted[7]}\',\'{wanted[8]}\',\'{wanted[9]}\',\'{wanted[10]}\'" \
-                    f",\'{wanted[11]}\')"
+        wantedstr = f"({wanted[0]},\"{wanted[1]}\",\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+                    f",\"{wanted[11]}\")"
         addholder(connection,wantedstr)
         return rawCode
     else:
-        print("result",result)
         return result[0][0]
 
 
-def accountaddition(row):
-    (instid, instname, permitid, permitentrydate, permitexpiry, subsidiary, parent, eprtr, firstyear, finalyear, address,
-    address2, zipcode, city, country, latitude, longitude, mainactivity)=row
-
+def accountaddition(row,code):
+    (instname, instid, permitid, permitentrydate, permitexpirationdate, subsidiaryundertaking, parentundertaking, eprtr,
+     firstyear, finalyear, address, address2, zipcode, city, country, latitude, longitude, mainactivity, status)=row
     global accountcounter
     global connection
     query='select count(*) from accounts;'
@@ -257,9 +266,14 @@ def accountaddition(row):
     result=cursor.fetchall()[0][0]
     #result = int(execute_query(connection,query)[0][0])
     accountcounter=result+1
-    wanted=[accountcounter]+[int(row[0]),row[1],int(row[8]),int(row[9]),row[10],row[12],row[13],row[14],row[17]]
-    accountcounter+=1
-    addaccount(connection,tuple(wanted),"accounts")
+    wanted=[accountcounter,code,"NULL"]+[row[i] for i in range(19)]
+    for i in [6, 7]:
+        if wanted[i] == "NULL":
+            wanted[i] = "1941-09-09"
+    wantedstr = f"({wanted[0]},{wanted[1]},\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+                f",{wanted[11]},{wanted[12]},\"{wanted[13]}\",\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",{wanted[20]}," \
+                f"\"{wanted[21]}\")"
+    addaccount(connection,wantedstr)
     return wanted
 
 def aircraftaddition(row,holdercode):
@@ -267,25 +281,25 @@ def aircraftaddition(row,holdercode):
      eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder,status)=row
     #global accountcounter
     global connection
-    query='select count(*) from aircrafts;'
+    query='select count(*) from Aircrafts;'
     cursor = connection.cursor()
     cursor.execute(query)
     result=cursor.fetchall()[0][0]
     #result = int(execute_query(connection,query)[0][0])
     accountcounter=result+1
     wanted=[accountcounter]+[row[0],holdercode]+ [row[i] for i in range(1,21)]
-    for i in [6,7,12,13]:
+    for i in [6,7]:
         if wanted[i]=="NULL":
             wanted[i]="1941-09-09"
-    wantedstr=f"({wanted[0]},\'{wanted[1]}\',{wanted[2]},{wanted[3]},\'{wanted[4]}\',\'{wanted[5]}\',\'{wanted[6]}\',\'{wanted[7]}\',\'{wanted[8]}\',\'{wanted[9]}\',\'{wanted[10]}\'" \
-              f",\'{wanted[11]}\',{wanted[12]},\'{wanted[13]}\',\'{wanted[14]}\',\'{wanted[15]}\',\'{wanted[16]}\',\'{wanted[17]}\',\'{wanted[18]}\',\'{wanted[19]}\',\'{wanted[20]}\'," \
-              f"{wanted[21]},\'{wanted[22]}\')"
+    wantedstr=f"({wanted[0]},\"{wanted[1]}\",{wanted[2]},{wanted[3]},\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+              f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
+              f"{wanted[21]},\"{wanted[22]}\")"
     addaircraft(connection,wantedstr)
     return wanted
 
-def addaccount(connection,attributes,table):
+def addaccount(connection,attributes):
     sql = f"""
-        insert into {table}(rawCode,installationID,installationname,firstyear,finalyear,address,zipcode,city,country,mainactivity)
+        insert into Accounts (rawCode,holdercode, nickname,installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
         values {attributes}
         """
     execute_query(connection, sql)
@@ -296,7 +310,6 @@ def addaircraft(connection, attributes):
             insert into Aircrafts (rawCode,holderName,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
             values {attributes}
             """
-    print(sql)
     execute_query(connection, sql)
 
 def addholder(connection,attributes):
@@ -304,15 +317,7 @@ def addholder(connection,attributes):
             insert into holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
             values {attributes}
             """
-    cursor = connection.cursor()
-    try:
-        cursor.execute(sql)
-        connection.commit()
-        print("Query successful")
-    except Error as err:
-        attributes.split(',')[2]
-        print(f"Error: '{err}'")
-
+    execute_query(connection, sql)
 
 def addrow(connection, attributes, table, columns):
     sql = f"""
@@ -322,7 +327,6 @@ def addrow(connection, attributes, table, columns):
     execute_query(connection, sql)
 
 def addcountry(connection, attributes, table, columns):
-    ignite(connection,"storage")
     sql = f"""
     insert into {table}(eu_abbr2L,name,onoma,abbr2L,abbr3L,EU,euro,EFTA,continent)
     values {attributes}
@@ -430,7 +434,8 @@ if __name__ == '__main__':
     connection=create_server_connection('localhost','root','')
     ignite(connection,"storage")
     countrydic = getcountries(connection)
-
+    countrydic['Korea, Republic Of'] = countrydic['Korea, Republic of']
+    countrydic['Moldova'] = countrydic['Moldova, Republic of']
     #holderurl = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={pageno}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
     """url = 'https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91955&action=all&languageCode=en&returnURL=installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
     response = requests.get(url)
@@ -449,13 +454,7 @@ if __name__ == '__main__':
     #holders,accounts=holdercontroller()
     #print(accounts)
     #countriestable(connection)
-    print("hello")
-    url='https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91958&action=all&languageCode=en&returnURL=resultList.currentPageNumber%3D1%26installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    url='https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=90554&action=all&languageCode=en&returnURL=installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    one,two,three = indholder(url)
-    code=holderaddition(one)
-    aircraftaddition(two,code)
-
+    holdercontroller(['BE'],[i for i in range(27)])
     #for account in accounts:
     #    accountaddition(account)
     #query = 'select count(*) from accounts;'
