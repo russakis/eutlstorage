@@ -10,7 +10,7 @@ import requests
 # import time
 from bs4 import BeautifulSoup
 #import re
-
+import time
 
 def create_server_connection(host_name, user_name, user_password):
     connection = None
@@ -143,11 +143,17 @@ def individualaccount():
     return ((regno, accname, name, status, address, zipcode, city, country, registry, typeofacc))
 
 def indholder(url): #function to handle the individual holder information plus the account of the operating account holder page
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.find_all("span", attrs={'class': 'bordertbheadfont'})
-    titles = [item.string for item in title]
-    temp = soup.find_all("span", attrs={'class': 'classictext'})  # ,type="text", name= "resultList.lastPageNumber")
+    while True:
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title = soup.find_all("span", attrs={'class': 'bordertbheadfont'})
+            titles = [item.string for item in title]
+            temp = soup.find_all("span", attrs={'class': 'classictext'})  # ,type="text", name= "resultList.lastPageNumber")
+        except requests.exceptions.ConnectionError:
+            print("Found an exception")
+            continue
+        break
     newarr = [item.string for item in temp]
     thisnew = []
     newarr= newarr[:40]
@@ -170,7 +176,7 @@ def indholder(url): #function to handle the individual holder information plus t
         thisnew[13]=countrydic[thisnew[13]]#turning country names to two character identifiers
     except:
         print(thisnew[13],thisnew[12])
-        thisnew[13]="dq"
+        thisnew[13]="NR"
     holder =(holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email)=tuple([thisnew[i] for i in [2,4,8,9,10,11,12,13,14,15,16]])
     if titles[0][7:-7] == "Aircraft Operator Holding Account Information":
         installation = (airname, airid, eccode, monitoringplan, monfirstyear,monfinalyear, subsidiary,parent,eprtr,callsign,firstyear,lastyear,address,address2,zipcode,city,country,latitude,longitude,mainactivityholder,status) \
@@ -203,7 +209,7 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
             # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
             pages = temp[0]['value']
             pages=[i for i in range(int(pages))]
-            if pagestosearch!=[] or len(pagestosearch)<len(pages):
+            if pagestosearch!=[] and len(pagestosearch)<len(pages):
                 pages=pagestosearch
             for pageno in pages:
                 print(pageno)
@@ -230,8 +236,6 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                 else:
                     accountaddition(instresult,code)
                 # print(result)
-    return (holders,accounts)
-        #for pageno in
 
 def holderaddition(row):
     (holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email) = row
@@ -423,8 +427,8 @@ def countriestable(connection):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     startingurl = 'https://ec.europa.eu/clima/ets'
-    countries = ['AT','BE','BG','HR','CY','CZ','DK','EE','EU','FI','FR','DE','GR','HU','IS','IE','IT','LV','LI','LT','LU','MT','NL',
-                 'XI','NO','PL','PT','RO','SK','SI','ES','SE']
+    countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'EU', 'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'LV', 'LI', 'LT', 'LU', 'MT', 'NL', 'XI', 'NO', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE','GB']
+
     country = countries[4]
     pageno = 0
     holders = []
@@ -435,7 +439,14 @@ if __name__ == '__main__':
     ignite(connection,"storage")
     countrydic = getcountries(connection)
     countrydic['Korea, Republic Of'] = countrydic['Korea, Republic of']
-    countrydic['Moldova'] = countrydic['Moldova, Republic of']
+    countrydic['Moldova, Republic Of'] = countrydic['Moldova, Republic of']
+    countrydic['European Commission'] = countrydic['European Union']
+    countrydic['Virgin Islands, British'] = countrydic['British Virgin Islands']
+    countrydic['Libyan Arab Jamahiriya'] = countrydic['Libya']
+    countrydic['Virgin Islands, U.S.'] = countrydic['US Virgin Islands']
+    countrydic['Viet Nam'] = countrydic['Vietnam']
+    countrydic['Iran, Islamic Republic Of'] = countrydic['Iran, Islamic Republic of']
+    countrydic['Taiwan, Province Of China'] = countrydic['Taiwan']
     #holderurl = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={pageno}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
     """url = 'https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91955&action=all&languageCode=en&returnURL=installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
     response = requests.get(url)
@@ -451,10 +462,16 @@ if __name__ == '__main__':
     # create_table(connection,"accounts")
     # create_db_connection('localhost', 'root', '', 'storage')
     #holderspage()
-    #holders,accounts=holdercontroller()
+    holdercontroller(['FR'], [i for i in range(64,91)])
+    """for country in countries[7:12]:
+        start = time.time()
+        print("COUNTRY",country)
+        holdercontroller([country],[])
+        thistime=time.time()
+        print(f"The country {country} took ",thistime-start," seconds")"""
+    #holdercontroller(countries[12:],[])
     #print(accounts)
     #countriestable(connection)
-    holdercontroller(['BE'],[i for i in range(27)])
     #for account in accounts:
     #    accountaddition(account)
     #query = 'select count(*) from accounts;'

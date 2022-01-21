@@ -1,7 +1,6 @@
 from main import execute_query,create_server_connection,ignite
+
 def createholders():
-    connection=create_server_connection('localhost','root','')
-    ignite(connection,"storage")
     sql = """CREATE TABLE `Holders` (
   `rawCode` int PRIMARY KEY,
   `holderName` varchar(255),
@@ -18,18 +17,16 @@ def createholders():
 );"""
     execute_query(connection,sql)
 def createaccounts():
-    connection = create_server_connection('localhost', 'root', '')
-    ignite(connection, "storage")
     sql = """CREATE TABLE `Accounts` (
   `rawCode` int PRIMARY KEY,
   `holdercode` int,
   `nickname` varchar(50),
   `installationname` varchar(100),
   `installationid` varchar(20),
-  `permitid` varchar(25),
+  `permitid` varchar(50),
   `permitentry` date,
   `permitexpiry` date,
-  `subsidiary` varchar(100),
+  `subsidiary` varchar(200),
   `parent` varchar(200),
   `eprtr` varchar(100),
   `firstyear` smallint,
@@ -46,8 +43,6 @@ def createaccounts():
 );"""
     execute_query(connection, sql)
 def createaircrafts():
-    connection = create_server_connection('localhost', 'root', '')
-    ignite(connection, "storage")
     sql = """CREATE TABLE `Aircrafts` (
   `rawCode` int PRIMARY KEY,
   `holderName` varchar(100),
@@ -57,7 +52,7 @@ def createaircrafts():
   `monitoringplan` varchar(100),
   `monitoringfirstyear` date,
   `monitoringfinalyear` date,
-  `subsidiary` varchar(100),
+  `subsidiary` varchar(200),
   `parent` varchar(100),
   `eprtr` varchar(100),
   `callsign` varchar(20),
@@ -76,8 +71,6 @@ def createaircrafts():
     execute_query(connection, sql)
 
 def createmainactivity():
-    connection = create_server_connection('localhost', 'root', '')
-    ignite(connection, "storage")
     sql = """CREATE TABLE `MainActivityType` (
   `kwdikos` tinyint PRIMARY KEY,
   `onoma` varchar(100)
@@ -85,8 +78,6 @@ def createmainactivity():
     execute_query(connection, sql)
 
 def createcountries():
-    connection = create_server_connection('localhost', 'root', '')
-    ignite(connection, "storage")
     sql = """CREATE TABLE `Countries` (
   `eu_abbr2L` char(2) PRIMARY KEY,
   `name` varchar(52),
@@ -99,3 +90,32 @@ def createcountries():
   `continent` enum('Europe','Asia','Africa','America','Oceania')
 );"""
     execute_query(connection, sql)
+
+def alters():
+    sql ="""
+ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
+
+ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
+
+ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, installationid);"""
+    execute_query(connection, sql)
+
+
+connection=create_server_connection('localhost','root','')
+ignite(connection, "storage")
+createholders()
+createaccounts()
+createaircrafts()
+#alters()
