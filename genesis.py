@@ -21,12 +21,13 @@ def createaccounts():
   `rawCode` int PRIMARY KEY,
   `holdercode` int,
   `nickname` varchar(50),
+  `typeofaccount` varchar(100),
   `installationname` varchar(100),
   `installationid` varchar(20),
   `permitid` varchar(50),
   `permitentry` date,
   `permitexpiry` date,
-  `subsidiary` varchar(200),
+  `subsidiary` varchar(255),
   `parent` varchar(200),
   `eprtr` varchar(100),
   `firstyear` smallint,
@@ -107,7 +108,7 @@ ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_a
 
 ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
-ALTER TABLE aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
+ALTER TABLE Aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
 
 ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, installationid);"""
     execute_query(connection, sql)
