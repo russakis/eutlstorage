@@ -12,6 +12,18 @@ from bs4 import BeautifulSoup
 #import re
 import time
 
+def cleanitem(item):
+    item = item.replace('\n', '')
+    item = item.replace('\r', '')
+    item = item.replace('\t', '')
+    item = item.replace('\xa0', '')
+    item = item.replace('\"', '\'')
+    item = item.lstrip()
+    if item != '':
+        return item.rstrip()
+    else:
+        return "NULL"
+
 def create_server_connection(host_name, user_name, user_password):
     connection = None
     try:
@@ -212,7 +224,7 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
             if pagestosearch!=[] and len(pagestosearch)<len(pages):
                 pages=pagestosearch
             for pageno in pages:
-                print(pageno)
+                print(pageno+1,"/",pages[-1]+1)
                 url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
                 holderlinks = holderspage(url)
                 #with the links we want to crawl these pages and store the individual information
@@ -223,7 +235,6 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                         aircraftaddition(instresult, code)
                     else:
                         accountaddition(instresult, code)
-                    #print(result)
         except IndexError:
             url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
             holderlinks = holderspage(url)
@@ -235,7 +246,6 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                     aircraftaddition(instresult,code)
                 else:
                     accountaddition(instresult,code)
-                # print(result)
 
 def holderaddition(row):
     (holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email) = row
@@ -245,7 +255,7 @@ def holderaddition(row):
     cursor.execute(query)
     result = cursor.fetchall()[0][0]
     rawCode = result + 1
-    query = f'select rawCode from holders where companyno = \'{compno}\''
+    query = f'select rawCode from holders where holderName = \"{holdername}\"'
     cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
@@ -306,7 +316,7 @@ def aircraftaddition(row,holdercode):
     result=cursor.fetchall()[0][0]
     #result = int(execute_query(connection,query)[0][0])
     accountcounter=result+1
-    wanted=[f"{accountcounter}"]+[row[0],f"{holdercode}"]+ [row[i] for i in range(1,21)]
+    wanted=[f"{accountcounter}"]+[row[0],"NULL",f"{holdercode}"]+ [row[i] for i in range(1,21)]
     if wanted[3][0]==0:
         print("WE WOULD LIKE TO INFORM YOU YOU DONE FUCKED UP")
     #for i in [6,7]:
@@ -327,23 +337,23 @@ def aircraftaddition(row,holdercode):
 
 def addaccount(connection,attributes):
     sql = f"""
-        insert into Accounts (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-        values {attributes}
+        INSERT INTO Accounts (rawCode,holdercode, alias,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
+        VALUES {attributes}
         """
     execute_query(connection, sql)
 
 def addaircraft(connection, attributes):
     #(airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent, eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder)
     sql = f"""
-            insert into Aircrafts (rawCode,holderName,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
-            values {attributes}
+            INSERT INTO Aircrafts (rawCode,aircraftName,alias ,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
+            VALUES {attributes}
             """
     execute_query(connection, sql)
 
 def addholder(connection,attributes):
     sql = f"""
-            insert into holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
-            values {attributes}
+            INSERT INTO Holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
+            VALUES {attributes}
             """
     execute_query(connection, sql)
 
@@ -490,13 +500,14 @@ if __name__ == '__main__':
     # create_table(connection,"accounts")
     # create_db_connection('localhost', 'root', '', 'storage')
     #holderspage()
-    #holdercontroller(['BG'],[i for i in range(5,9)])
-    for country in countries[9:]:
+    holdercontroller(['DE'],[i for i in range(58,141)])
+    """for country in countries:
         start = time.time()
         print("COUNTRY",country)
         holdercontroller([country],[])
         thistime=time.time()
-        print(f"The country {country} took ",thistime-start," seconds")
+        print(f"The country {country} took ",thistime-start," seconds")"""
+
     #nl 32pages
     #holdercontroller(countries[12:],[])
     #print(accounts)

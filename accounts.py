@@ -7,6 +7,7 @@ import urllib.request
 from bs4 import BeautifulSoup
 import re
 from main import ignite,execute_query,create_server_connection,createcountrydic
+import time
 
 def exploration():
     startingurl='https://ec.europa.eu/clima/ets'
@@ -15,6 +16,7 @@ def exploration():
     soup = BeautifulSoup(response.text, 'html.parser')
     results = soup.find_all("option", attrs={'class': 'formOptionListMedium'})
     values=[item["value"] for item in results[32:]]
+    urls=[]
     for value in values:
         try:
             newurl=f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.accountFullTypeCodes={value}&accountHolder=&search=Search&searchType=account&currentSortSettings='
@@ -22,6 +24,7 @@ def exploration():
             soup = BeautifulSoup(response.text, 'html.parser')
             newresults = soup.find_all("a", attrs={'class': 'listlink'})
             extraurl=startingurl + newresults[0]["href"][11:]
+            urls.append(extraurl)
             response = requests.get(extraurl)
             soup = BeautifulSoup(response.text, 'html.parser')
             pageres = soup.find_all("span", attrs={'class': 'classictext'})
@@ -29,6 +32,29 @@ def exploration():
             print([i.string for i in results[32:]][values.index(value)],len(pageres)+len(temp3))
         except IndexError:
             print([i.string for i in results[32:]][values.index(value)], "no shit found")
+    temp=[]
+    for url in urls:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        results = soup.find_all("span", attrs={'class': 'titlelist'})
+        categories = [item.string for item in results]
+        l = []
+        for item in categories:
+            tempitem = item
+            item = item.replace('\n', '')
+            item = item.replace('\r', '')
+            item = item.replace('\t', '')
+            item = item.replace('\xa0', '')
+            item = item.replace('\"', '\'')
+            item = item.lstrip()
+            # if item == '': print(newarr.index(tempitem))
+            if item != '': l.append(item.rstrip())
+        temp.append(l)
+    for li in temp:
+        print(values[temp.index(li)])
+        print(list(set(temp[1])-set(li)))
+        print(list(set(li)-set(temp[1])))
+        print(temp[1]==li)
 
 
 def indaccount(url):
@@ -67,14 +93,14 @@ def indaccount(url):
     name = name.replace('\t', '').rstrip()
     #temp2[1]=abbrs[countries.index(temp2[1])]
     if temp2[6]=="Null":temp2[6]="1941-09-09 00:00:00.0"
-    print(temp2)
-    if temp2[0]=="Aircraft Operator Account":
-        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing)=(name,temp2[9],temp2[2],temp2[0],temp2[1],temp2[4],temp2[5],temp2[6])
-        holderspecs = (holdername,compno,holdertype,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[9],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18])
+    someresults = soup.find_all("span", attrs={'class': 'titlelist'})
+    if len(someresults)==20:
+        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6])
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],countrydic[temp2[16]],temp2[17],temp2[18],temp2[19])
     else:
-        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing) = (name, temp2[10],temp2[2], temp2[0], temp2[1], temp2[4], temp2[5], temp2[6])
-        holderspecs = (holdername,compno,holdertype,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[9],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18])
-    return holderspecs,specs
+        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6])
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],countrydic[temp2[15]],temp2[16],temp2[17],temp2[18])
+    return holderspecs,specs,acctype
 
 def accountresults(url):
     # url = 'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes=GR&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
@@ -84,23 +110,20 @@ def accountresults(url):
     #                                     'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")
     # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
     # pages = temp[0]['value']
-
     # temp2 = soup.find_all("td", attrs={'class': 'bgtitlelist'})
     temp3 = soup.find_all("a", attrs={'class': 'listlink'})
     templinks = [startingurl + obj['href'][11:] for obj in temp3]
     #reallinks = [templinks[1 + i] for i in range(len(templinks) - 1) if i % 3 == 0]
-    #print(templinks)
     return templinks
 
-def controller(countriestoadd):
+def controller(countries,pagestosearch):
     accounts=[]
     holders=[]
-    for country in countriestoadd:#countries[21:22]:
+    for country in countries:#countries[21:22]:
         try:
             pageno=0
             #url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
             url = f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={country}&accountHolder=&searchType=account&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
-            #print(url)
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
             temp = soup.find_all("input", attrs={'name': 'resultList.lastPageNumber',
@@ -108,39 +131,101 @@ def controller(countriestoadd):
             # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
             pages = temp[0]['value']
             print(country, pages)
-            for pageno in range(int(pages)):
-                #url = f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={country}&accountHolder=&searchType=account&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
+            pages = [i for i in range(int(pages))]
+            if pagestosearch != [] and len(pagestosearch) < len(pages):
+                pages = pagestosearch
+            for pageno in pages:
+                print(pageno+1,"/",pages[-1]+1)
+                url = f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={country}&accountHolder=&searchType=account&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
                 holderlinks = accountresults(url)
                 #with the links we want to crawl these pages and store the individual information
                 for link in holderlinks:
-                    result,instresult = indaccount(link)
-                    holders.append(result)
-                    accounts.append(instresult)
-                    #print(result)
+                    result, instresult, acctype = indaccount(link)
+                    code = holderaddition(result)
+                    if acctype=="Operator Holding Account":
+                        #aircraftaddition(instresult, code)
+                        operatingupdate(instresult,code)
+                    elif acctype=="Aircraft Operator Account":
+                        aircraftupdate(instresult,code)
+                    else:
+                        accountaddition(instresult, code)
         except IndexError:
             #url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
             url = f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={country}&accountHolder=&search=Search&searchType=account&currentSortSettings=&resultList.currentPageNumber=1'
             holderlinks = accountresults(url)
             # with the links we want to crawl these pages and store the individual information
             for link in holderlinks:
-                result,instresult = indaccount(link)
-                holders.append(result)
-                accounts.append(instresult)
-                # print(result)
+                result, instresult, acctype = indaccount(link)
+                code = holderaddition(result)
+                if acctype == "Operator Holding Account":
+                    # aircraftaddition(instresult, code)
+                    operatingupdate(instresult, code)
+                elif acctype == "Aircraft Operator Account":
+                    aircraftupdate(instresult, code)
+                else:
+                    accountaddition(instresult, code)
     return (holders,accounts)
 
-def accountaddition(row):
-    (accountname,fullaccountname,acctype, accstatus,acccountry, accopen,accclose, relatedid) = row
+def holderupdate(row):
+    "asdf"
+
+def operatingupdate(row,code):
+    (nickname, accname, id, acctype, country, accstatus, accopening, accclosing)=row
     global connection
-    query = 'select count(*) from accounts;'
+    sql = f"""UPDATE Accounts
+            SET alias = \"{nickname}\"
+            WHERE (installationid = {id} AND country = \"{country}\");"""
+    execute_query(connection, sql)
+
+def aircraftupdate(row,code):
+    (nickname, accname,id, acctype, country, accstatus, accopening, accclosing)=row
+    global connection
+    sql=f"""UPDATE Aircrafts
+        SET alias = \"{nickname}\"
+        WHERE (aircraftid = {id} AND country = \"{country}\");"""
+    execute_query(connection,sql)
+
+def holderaddition(row):
+    (holdername, compno, legalid, address, address2, zipcode, city, country, tel1, tel2, email) = row
+    global connection
+    query = 'select count(*) from holders;'
+    cursor = connection.cursor()
+    cursor.execute(query)
+    result = cursor.fetchall()[0][0]
+    rawCode = result + 1
+    query = f'select rawCode from holders where holdername = \"{holdername}\"'
+    cursor = connection.cursor()
+    cursor.execute(query)
+    result = cursor.fetchall()
+    if result == []:  # if there exists no entry for that company number we move to create one
+        wanted = [f"{rawCode}"] + [row[i] for i in range(11)]
+        wantedstr = ""
+        for element in wanted:
+            if element == "NULL":
+                wantedstr += f"{element},"
+            else:
+                wantedstr += "\"" + element + "\","
+        wantedstr = "(" + wantedstr[:-1] + ")"
+        # wantedstr = f"({wanted[0]},\"{wanted[1]}\",\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+        #            f",\"{wanted[11]}\")"
+        addholder(connection, wantedstr)
+        return rawCode
+    else:  # otherwise return the rawCode so as to insert new account/aircraft
+        return result[0][0]
+
+def accountaddition(row,code):
+    (nickname, accname, id, acctype, country, accstatus, accopening, accclosing)=row
+    global connection
+    query = 'select count(*) from accountspage;'
     cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()[0][0]
     # result = int(execute_query(connection,query)[0][0])
     accountcounter = result + 1
-    # wanted=[accountcounter]+[row[i] for i in [0,1,8,9,10,12,13,14,17]]
-    wanted = [accountcounter] + [row[0], row[1],row[2], row[3], row[4], row[5], row[6],row[7]] +["Null"]
-    acc=wanted
+    wanted = [f"{accountcounter}", f"{code}"] + [row[i] for i in range(8)]
+    # for i in [7, 8]: #due to issues with inserting null into date field, i've chosen to insert a seemingly random date instead
+    #    if wanted[i] == "NULL":
+    #        wanted[i] = "1941-09-09"
     wantedstr = ""
     for element in wanted:
         if element == "NULL" or element.isnumeric():
@@ -148,10 +233,40 @@ def accountaddition(row):
         else:
             wantedstr += "\"" + element + "\","
     wantedstr = "(" + wantedstr[:-1] + ")"
+    # wantedstr = f"({wanted[0]},{wanted[1]},\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+    #            f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
+    #            f"{wanted[21]},\"{wanted[22]}\")"
+    # insert into Accounts (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
+    addaccount(connection, wantedstr)
+    return wanted
 
-    accountcounter += 1
-
-    addaccount(connection,wantedstr)
+def aircraftaddition(row,holdercode):
+    (airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent,
+     eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder,status)=row
+    global connection
+    query='select count(*) from Aircrafts;'
+    cursor = connection.cursor()
+    cursor.execute(query)
+    result=cursor.fetchall()[0][0]
+    #result = int(execute_query(connection,query)[0][0])
+    accountcounter=result+1
+    wanted=[f"{accountcounter}"]+[row[0],f"{holdercode}"]+ [row[i] for i in range(1,21)]
+    if wanted[3][0]==0:
+        print("WE WOULD LIKE TO INFORM YOU YOU DONE FUCKED UP")
+    #for i in [6,7]:
+    #    if wanted[i]=="NULL":
+    #        wanted[i]="1941-09-09"
+    wantedstr = ""
+    for element in wanted:
+        if element == "NULL" or element.isnumeric():
+            wantedstr += f"{element},"
+        else:
+            wantedstr += "\"" + element + "\","
+    wantedstr = "(" + wantedstr[:-1] + ")"
+    #wantedstr=f"({wanted[0]},\"{wanted[1]}\",{wanted[2]},{wanted[3]},\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
+    #          f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
+    #             f"{wanted[21]},\"{wanted[22]}\")"
+    addaircraft(connection,wantedstr)
     return wanted
 
 def addholder(connection,attributes):
@@ -163,11 +278,9 @@ def addholder(connection,attributes):
 
 def addaccount(connection,attributes):
     sql = f"""
-            INSERT INTO Accounts
-            (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-            VALUES {attributes}
-            ON DUPLICATE KEY UPDATE
-            nickname     = VALUES(nickname)"""
+        INSERT INTO AccountsPage
+        (rawCode,holdercode, alias, accountname, accountid, acctype, country, status, openingdate, closingdate)
+        VALUES {attributes}"""
     execute_query(connection, sql)
 
 def addaircraft(connection,attributes):
@@ -176,7 +289,7 @@ def addaircraft(connection,attributes):
         (rawCode,holderName,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
         VALUES {attributes}
         ON DUPLICATE KEY UPDATE
-        nickname     = VALUES(nickname)"""
+        alias     = VALUES(alias)"""
     execute_query(connection, sql)
 
 if __name__ == '__main__':
@@ -205,12 +318,17 @@ if __name__ == '__main__':
     soup = BeautifulSoup(response.text, 'html.parser')
     results = soup.find_all("option",attrs={'class':'formOptionListMedium'})
     clima=[item['value'] for item in results if len(item['value'])==2]"""
-    #url='https://ec.europa.eu/clima/ets/singleAccount.do?accountID=14631&action=details&languageCode=en&returnURL=accountHolder%3D%26search%3DSearch%26account.registryCodes%3DGR%26languageCode%3Den%26searchType%3Daccount%26currentSortSettings%3D&registryCode=GR'
-    #url='https://ec.europa.eu/clima/ets/singleAccount.do?accountID=90686&action=details&languageCode=en&returnURL=resultList.currentPageNumber%3D10%26accountHolder%3D%26nextList%3DNext%26searchType%3Daccount%26currentSortSettings%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    #one,two=indaccount(url)
-    exploration()
+    controller(['EE'],[])
+    """    for country in countries:
+        start = time.time()
+        print("COUNTRY",country)
+        controller([country],[])
+        thistime=time.time()
+        print(f"The country {country} took ",thistime-start," seconds")"""
+
     #print(len(accounts))
     #print(accounts[0])
     #row="('20 - Centrale énergétique (Dupont de Nemours)', 'Account holder', 'Former Operator Holding Account', 'closed', 'Luxembourg', '2006-06-08 00:00:00.0', '2014-06-30 10:41:05.0', '')"
     #print(re.sub(regex, r"\g<1>", sent))
+
 

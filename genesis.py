@@ -3,8 +3,8 @@ from main import execute_query,create_server_connection,ignite
 def createholders():
     sql = """CREATE TABLE `Holders` (
   `rawCode` int PRIMARY KEY,
-  `holderName` varchar(255),
-  `companyno` varchar(255) UNIQUE,
+  `holderName` varchar(255) UNIQUE,
+  `companyno` varchar(255),
   `legalid` varchar(30),
   `address` varchar(100),
   `address2` varchar(100),
@@ -16,11 +16,25 @@ def createholders():
   `email` varchar(50)
 );"""
     execute_query(connection,sql)
+def createaccountspage():
+    sql = """CREATE TABLE `AccountsPage` (
+  `rawCode` int PRIMARY KEY,
+  `holdercode` int,
+  `alias` varchar(200),
+  `accountname` varchar(100),
+  `accountid` varchar(20),
+  `acctype` varchar(100),
+  `country` char(2),
+  `status` enum('open','closed','Closure Pending'),
+  `openingdate` date,
+  `closingdate` date);
+  """
+    execute_query(connection,sql)
 def createaccounts():
     sql = """CREATE TABLE `Accounts` (
   `rawCode` int PRIMARY KEY,
   `holdercode` int,
-  `nickname` varchar(50),
+  `alias` varchar(200),
   `typeofaccount` varchar(100),
   `installationname` varchar(100),
   `installationid` varchar(20),
@@ -46,7 +60,8 @@ def createaccounts():
 def createaircrafts():
     sql = """CREATE TABLE `Aircrafts` (
   `rawCode` int PRIMARY KEY,
-  `holderName` varchar(100),
+  `aircraftName` varchar(100),
+  `alias` varchar(200),
   `holdercode` int,
   `aircraftid` int,
   `eccode` varchar(20),
@@ -92,9 +107,35 @@ def createcountries():
 );"""
     execute_query(connection, sql)
 
+
+def Transactions():
+    sql = """CREATE TABLE `Transactions` (
+  `transid` varchar(20) PRIMARY KEY,
+  `trantype` varchar(20),
+  `transdate` date,
+  `status` enum('Completed'),
+  `transferringregistry` char(2),
+  `transferringacctype` varchar(20),
+  `transferringaccname` varchar(200),
+  `transferringid` int,
+  `transferringaccholder` varchar(200),
+  `acquiringregistry` char(2),
+  `acquiringtype` varchar(20),
+  `acquiringaccname` varchar(200),
+  `acquiringid` int,
+  `acquiringaccholder` varchar(200),
+  `nbofunits` int
+);"""
+    execute_query(connection, sql)
+
+
 def alters():
     sql ="""
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
 ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
 
@@ -110,7 +151,17 @@ ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_ab
 
 ALTER TABLE Aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
 
-ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, installationid);"""
+ALTER TABLE AccountsPage ADD CONSTRAINT uqaccount UNIQUE KEY(alias,acctype);
+
+ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, installationid);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringregistry`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccholder`) REFERENCES `Holders` (`holderName`);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccholder`) REFERENCES `Holders` (`holderName`);"""
     execute_query(connection, sql)
 
 
@@ -119,4 +170,5 @@ ignite(connection, "storage")
 createholders()
 createaccounts()
 createaircrafts()
+createaccountspage()
 #alters()
