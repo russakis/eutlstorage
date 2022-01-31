@@ -66,7 +66,7 @@ def indaccount(url):
             temp=[item.string for item in results]
             #temp=[item.string[7:-6] for item in results]
             temp2=[]
-        except:
+        except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
             print("found an exception")
             continue
         break
@@ -95,10 +95,10 @@ def indaccount(url):
     if temp2[6]=="Null":temp2[6]="1941-09-09 00:00:00.0"
     someresults = soup.find_all("span", attrs={'class': 'titlelist'})
     if len(someresults)==20:
-        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6])
+        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing,commitment)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6],temp2[7])
         holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],countrydic[temp2[16]],temp2[17],temp2[18],temp2[19])
     else:
-        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6])
+        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing,commitment) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6],"NULL")
         holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],countrydic[temp2[15]],temp2[16],temp2[17],temp2[18])
     return holderspecs,specs,acctype
 
@@ -142,13 +142,7 @@ def controller(countries,pagestosearch):
                 for link in holderlinks:
                     result, instresult, acctype = indaccount(link)
                     code = holderaddition(result)
-                    if acctype=="Operator Holding Account":
-                        #aircraftaddition(instresult, code)
-                        operatingupdate(instresult,code)
-                    elif acctype=="Aircraft Operator Account":
-                        aircraftupdate(instresult,code)
-                    else:
-                        accountaddition(instresult, code)
+                    accountaddition(instresult, code)
         except IndexError:
             #url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
             url = f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={country}&accountHolder=&search=Search&searchType=account&currentSortSettings=&resultList.currentPageNumber=1'
@@ -157,13 +151,7 @@ def controller(countries,pagestosearch):
             for link in holderlinks:
                 result, instresult, acctype = indaccount(link)
                 code = holderaddition(result)
-                if acctype == "Operator Holding Account":
-                    # aircraftaddition(instresult, code)
-                    operatingupdate(instresult, code)
-                elif acctype == "Aircraft Operator Account":
-                    aircraftupdate(instresult, code)
-                else:
-                    accountaddition(instresult, code)
+                accountaddition(instresult, code)
     return (holders,accounts)
 
 def holderupdate(row):
@@ -188,12 +176,12 @@ def aircraftupdate(row,code):
 def holderaddition(row):
     (holdername, compno, legalid, address, address2, zipcode, city, country, tel1, tel2, email) = row
     global connection
-    query = 'select count(*) from holders;'
+    query = 'SELECT COUNT(*) FROM Holders;'
     cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()[0][0]
     rawCode = result + 1
-    query = f'select rawCode from holders where holdername = \"{holdername}\"'
+    query = f'SELECT rawCode FROM HOLDERS WHERE holdername = \"{holdername}\"'
     cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()
@@ -214,37 +202,44 @@ def holderaddition(row):
         return result[0][0]
 
 def accountaddition(row,code):
-    (nickname, accname, id, acctype, country, accstatus, accopening, accclosing)=row
+    (alias, accname, id, acctype, country, accstatus, accopening, accclosing,commitmentperiod)=row
     global connection
-    query = 'select count(*) from accountspage;'
+    query = 'SELECT COUNT(*) FROM Accounts;'
     cursor = connection.cursor()
     cursor.execute(query)
     result = cursor.fetchall()[0][0]
     # result = int(execute_query(connection,query)[0][0])
     accountcounter = result + 1
-    wanted = [f"{accountcounter}", f"{code}"] + [row[i] for i in range(8)]
+    wanted = [f"{accountcounter}", f"{code}"] + [row[i] for i in range(len(row))]
     # for i in [7, 8]: #due to issues with inserting null into date field, i've chosen to insert a seemingly random date instead
     #    if wanted[i] == "NULL":
     #        wanted[i] = "1941-09-09"
     wantedstr = ""
     for element in wanted:
+        element=element.replace("\"","\\\"")
+        element=element.replace("\'","\\\'")
+
         if element == "NULL" or element.isnumeric():
             wantedstr += f"{element},"
         else:
-            wantedstr += "\"" + element + "\","
+            wantedstr += "\'" + element + "\',"
     wantedstr = "(" + wantedstr[:-1] + ")"
+    extra=[]
+    for i in [2,10,8,9]:
+        element=wanted[i].replace("\"","\\\"")
+        extra.append(element.replace("\'","\\\'"))
     # wantedstr = f"({wanted[0]},{wanted[1]},\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
     #            f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
     #            f"{wanted[21]},\"{wanted[22]}\")"
     # insert into Accounts (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-    addaccount(connection, wantedstr)
+    addaccount(connection, wantedstr,extra)
     return wanted
 
 def aircraftaddition(row,holdercode):
     (airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent,
      eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder,status)=row
     global connection
-    query='select count(*) from Aircrafts;'
+    query='select count(*) from Accounts;'
     cursor = connection.cursor()
     cursor.execute(query)
     result=cursor.fetchall()[0][0]
@@ -261,7 +256,7 @@ def aircraftaddition(row,holdercode):
         if element == "NULL" or element.isnumeric():
             wantedstr += f"{element},"
         else:
-            wantedstr += "\"" + element + "\","
+            wantedstr += "\'" + element + "\',"
     wantedstr = "(" + wantedstr[:-1] + ")"
     #wantedstr=f"({wanted[0]},\"{wanted[1]}\",{wanted[2]},{wanted[3]},\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
     #          f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
@@ -276,21 +271,29 @@ def addholder(connection,attributes):
         VALUES {attributes}"""
     execute_query(connection, sql)
 
-def addaccount(connection,attributes):
+def addaccount(connection,attributes,extra):
+    for i in range(len(extra)):
+        if extra[i]!="NULL":extra[i]=f"\'{extra[i]}\'"
     sql = f"""
-        INSERT INTO AccountsPage
-        (rawCode,holdercode, alias, accountname, accountid, acctype, country, status, openingdate, closingdate)
-        VALUES {attributes}"""
+        INSERT INTO Accounts
+        (rawCode,holdercode, alias, accname, id, typeofaccount, country, status, accopening, accclosing,commitmentperiod)
+        VALUES {attributes}
+        ON DUPLICATE KEY UPDATE
+        alias={extra[0]},
+        commitmentperiod={extra[1]},
+        accopening ={extra[2]},
+        accclosing = {extra[3]};"""
     execute_query(connection, sql)
 
 def addaircraft(connection,attributes):
     sql = f"""
-        INSERT INTO Aircrafts
-        (rawCode,holderName,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
+        INSERT INTO Accounts
+        (rawCode,holderName,holdercode,id,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
         VALUES {attributes}
         ON DUPLICATE KEY UPDATE
         alias     = VALUES(alias)"""
     execute_query(connection, sql)
+
 
 if __name__ == '__main__':
     startingurl = 'https://ec.europa.eu/clima/ets'
@@ -318,14 +321,34 @@ if __name__ == '__main__':
     soup = BeautifulSoup(response.text, 'html.parser')
     results = soup.find_all("option",attrs={'class':'formOptionListMedium'})
     clima=[item['value'] for item in results if len(item['value'])==2]"""
-    controller(['EE'],[])
-    """    for country in countries:
+    """    attributes="(\"one\",\"two\",\"three\")"
+    print(attributes.split(",")[-1][:-1])
+    url='https://ec.europa.eu/clima/ets/singleAccount.do?accountID=90554&action=details&languageCode=en&returnURL=resultList.currentPageNumber%3D9%26accountHolder%3D%26nextList%3DNext%26searchType%3Daccount%26currentSortSettings%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
+    one,two,three=indaccount(url)
+    print(one)
+    print(two)
+    wanted=two
+    wantedstr = ""
+    for element in wanted:
+        if element == "NULL" or element.isnumeric():
+            wantedstr += f"{element},"
+        else:
+            wantedstr += "\"" + element + "\","
+    wantedstr = "(" + wantedstr[:-1] + ")"
+    print(wantedstr.split(",")[-1][:-1])"""
+    # countries.remove("BG")
+    """    url='https://ec.europa.eu/clima/ets/singleAccount.do?accountID=96351&action=details&languageCode=en&returnURL=resultList.currentPageNumber%3D1%26accountHolder%3D%26search%3DSearch%26searchType%3Daccount%26currentSortSettings%3D%26account.registryCodes%3DMT%26languageCode%3Den&registryCode=MT'
+    one,two,_=indaccount(url)
+    code=holderaddition(one)
+    want=accountaddition(two,code)
+    print(want)"""
+    controller(["CZ"],[i for i in range(59,64)])
+    """for country in countries[2:10]:
         start = time.time()
-        print("COUNTRY",country)
-        controller([country],[])
-        thistime=time.time()
-        print(f"The country {country} took ",thistime-start," seconds")"""
-
+        print("COUNTRY", country)
+        controller([country], [])
+        thistime = time.time()
+        print(f"The country {country} took ", thistime - start, " seconds")"""
     #print(len(accounts))
     #print(accounts[0])
     #row="('20 - Centrale énergétique (Dupont de Nemours)', 'Account holder', 'Former Operator Holding Account', 'closed', 'Luxembourg', '2006-06-08 00:00:00.0', '2014-06-30 10:41:05.0', '')"

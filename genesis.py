@@ -36,8 +36,8 @@ def createaccounts():
   `holdercode` int,
   `alias` varchar(200),
   `typeofaccount` varchar(100),
-  `installationname` varchar(100),
-  `installationid` varchar(20),
+  `accname` varchar(100),
+  `id` varchar(20),
   `permitid` varchar(50),
   `permitentry` date,
   `permitexpiry` date,
@@ -54,7 +54,16 @@ def createaccounts():
   `latitude` varchar(100),
   `longitude` varchar(100),
   `mainactivity` tinyint,
-  `status` enum('open','closed','Closure Pending')
+  `status` enum('open','closed','Closure Pending'),
+  `accopening` date,
+  `accclosing` date,
+  `commitmentperiod` varchar(100),
+  `eccode` varchar(20),
+  `callsign` varchar(20),
+  `monitoringplan` varchar(100),
+  `monitoringfirstyear` date,
+  `monitoringfinalyear` date
+  
 );"""
     execute_query(connection, sql)
 def createaircrafts():
@@ -129,46 +138,98 @@ def Transactions():
     execute_query(connection, sql)
 
 
+def TransactionTypes():
+    sql="""CREATE TABLE `TransactionTypes` (
+  `code` varchar(6) PRIMARY KEY,
+  `transferringType` smallint,
+  `acquiringType` smallint,
+  `sholio` text
+);
+    """
+    execute_query(connection,sql)
+
+def TransactionDetails():
+    sql="""CREATE TABLE `TransactionDetails` (
+  `transid` varchar(20) PRIMARY KEY,
+  `transtype` varchar(20),
+  `transdate` date,
+  `status` varchar(15),
+  `originatingregistry` varchar(2),
+  `unittype` varchar(100),
+  `nbofunits` int,
+  `originalcommitment` int,
+  `transferringaccount` varchar(200),
+  `transferringid` int,
+  `acquiringaccount` varchar(200),
+  `acquiringid` int,
+  `lulucf` varchar(200),
+  `projectid` int,
+  `track` varchar(200),
+  `expirydate` date
+);"""
+    execute_query(connection,sql)
+
 def alters():
     sql ="""
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
 
-ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
-
-ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
-
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
 ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
-ALTER TABLE Aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
+ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, id);
 
-ALTER TABLE AccountsPage ADD CONSTRAINT uqaccount UNIQUE KEY(alias,acctype);
+ALTER TABLE Accounts ADD CONSTRAINT UniqueAccount UNIQUE (alias, holdercode, id, typeofaccount);
 
-ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, installationid);
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`abbr2L`);
 
-ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`eu_abbr2L`);
-
-ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringregistry`) REFERENCES `Countries` (`eu_abbr2L`);
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringregistry`) REFERENCES `Countries` (`abbr2L`);
 
 ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccholder`) REFERENCES `Holders` (`holderName`);
 
-ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccholder`) REFERENCES `Holders` (`holderName`);"""
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccholder`) REFERENCES `Holders` (`holderName`);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`trantype`) REFERENCES `TransactionTypes` (`code`)
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccname`) REFERENCES `Accounts` (`alias`);
+
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccname`) REFERENCES `Accounts` (`alias`);
+
+ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transid`) REFERENCES `Transactions` (`transid`);
+
+ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`transferringType`);
+
+;
+"""
+
+    sql2="""ALTER TABLE Aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
+
+ALTER TABLE AccountsPage ADD CONSTRAINT uqaccount UNIQUE KEY(alias,acctype);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
+
+ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
+
+ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+
+
+"""
     execute_query(connection, sql)
 
 
 connection=create_server_connection('localhost','root','')
 ignite(connection, "storage")
-createholders()
-createaccounts()
-createaircrafts()
-createaccountspage()
+#createholders()
+#createaccounts()
+#createaircrafts()
+#createaccountspage()
+#TransactionTypes()
+TransactionDetails()
+#Transactions()
 #alters()

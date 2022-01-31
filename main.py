@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 #import re
 import time
 
+
 def cleanitem(item):
     item = item.replace('\n', '')
     item = item.replace('\r', '')
@@ -280,7 +281,7 @@ def accountaddition(row,code):
     (instname, instid, permitid, permitentrydate, permitexpirationdate, subsidiaryundertaking, parentundertaking, eprtr,
      firstyear, finalyear, address, address2, zipcode, city, country, latitude, longitude, mainactivity, status)=row
     global connection
-    query='select count(*) from accounts;'
+    query='SELECT COUNT(*) FROM Accounts;'
     cursor = connection.cursor()
     cursor.execute(query)
     result=cursor.fetchall()[0][0]
@@ -310,7 +311,7 @@ def aircraftaddition(row,holdercode):
      eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder,status)=row
     #global accountcounter
     global connection
-    query='select count(*) from Aircrafts;'
+    query='SELECT COUNT(*) FROM Accounts;'
     cursor = connection.cursor()
     cursor.execute(query)
     result=cursor.fetchall()[0][0]
@@ -337,7 +338,7 @@ def aircraftaddition(row,holdercode):
 
 def addaccount(connection,attributes):
     sql = f"""
-        INSERT INTO Accounts (rawCode,holdercode, alias,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
+        INSERT INTO Accounts (rawCode,holdercode, alias,typeofaccount, accname,id,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
         VALUES {attributes}
         """
     execute_query(connection, sql)
@@ -345,16 +346,16 @@ def addaccount(connection,attributes):
 def addaircraft(connection, attributes):
     #(airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent, eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder)
     sql = f"""
-            INSERT INTO Aircrafts (rawCode,aircraftName,alias ,holdercode,aircraftid,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address1,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
-            VALUES {attributes}
-            """
+        INSERT INTO Accounts (rawCode,accname,alias ,holdercode,id,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
+        VALUES {attributes}
+        """
     execute_query(connection, sql)
 
 def addholder(connection,attributes):
     sql = f"""
-            INSERT INTO Holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
-            VALUES {attributes}
-            """
+        INSERT INTO Holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
+        VALUES {attributes}
+        """
     execute_query(connection, sql)
 
 def addrow(connection, attributes, table, columns):
@@ -383,6 +384,7 @@ def createcountrydic(connection):
     countrydic['Iran, Islamic Republic Of'] = countrydic['Iran, Islamic Republic of']
     countrydic['Taiwan, Province Of China'] = countrydic['Taiwan']
     countrydic['JERSEY'] = countrydic['Jersey']
+    countrydic['Saint Kitts And Nevis']= countrydic['Saint Kitts and Nevis']
     return countrydic
 
 def countriestable(connection):
@@ -435,8 +437,8 @@ def countriestable(connection):
     ni = ('XI','Northern Ireland','Βόρεια Ιρλανδία','XI',None, 1,1,0,'Europe')
     eu = ('EU','European Union','Ευρωπαϊκή Ένωση','EU',None,None,None,None,"Europe")
     un = ('UN','United Nations','Ηνωμένα Έθνη','UN',None,None,None,None,None)
-    uk = ('GB','United Kingdom','Ηνωμένο Βασίλειο','GB','GBR',1,0,1,'Europe')
-    gr = ('GR','Greece','Ελλάδα','GR','GRC',1,1,1,'Europe')
+    uk = ('UK','United Kingdom','Ηνωμένο Βασίλειο','GB','GBR',1,0,1,'Europe')
+    gr = ('EL','Greece','Ελλάδα','GR','GRC',1,1,1,'Europe')
     one=sorted(oldcountries[1:], key=lambda x: x[0])
     two = sorted(oldcountries[1:], key=lambda x: x[3])
     #one=oldcountries[1:].sort(key = lambda x: x[0])
@@ -472,6 +474,7 @@ def countriestable(connection):
     print(len(results))
     print([item.string for item in results])"""
 
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     startingurl = 'https://ec.europa.eu/clima/ets'
@@ -500,15 +503,16 @@ if __name__ == '__main__':
     # create_table(connection,"accounts")
     # create_db_connection('localhost', 'root', '', 'storage')
     #holderspage()
-    holdercontroller(['DE'],[i for i in range(58,141)])
-    """for country in countries:
+    #holdercontroller(['BG'],[])
+    #countries.remove("GR")
+    #countries.remove("BG")
+
+    for country in countries[:10]:
         start = time.time()
         print("COUNTRY",country)
         holdercontroller([country],[])
         thistime=time.time()
-        print(f"The country {country} took ",thistime-start," seconds")"""
-
-    #nl 32pages
+        print(f"The country {country} took ",thistime-start," seconds")    #nl 32pages
     #holdercontroller(countries[12:],[])
     #print(accounts)
     #countriestable(connection)
