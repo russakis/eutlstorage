@@ -94,12 +94,23 @@ def indaccount(url):
     #temp2[1]=abbrs[countries.index(temp2[1])]
     if temp2[6]=="Null":temp2[6]="1941-09-09 00:00:00.0"
     someresults = soup.find_all("span", attrs={'class': 'titlelist'})
+    try:
+        if len(someresults) == 20:
+            temp2[16]=countrydic[temp2[16]]#turning country names to two character identifiers
+        else: temp2[15]=countrydic[temp2[15]]
+    except:
+        if len(someresults) == 20:
+            print(temp2[15],temp2[16])
+            temp2[16]="AV"
+        else:
+            print(temp2[14],temp2[15])
+            temp2[15]="AV"
     if len(someresults)==20:
         specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing,commitment)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6],temp2[7])
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],countrydic[temp2[16]],temp2[17],temp2[18],temp2[19])
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18],temp2[19])
     else:
         specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing,commitment) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6],"NULL")
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],countrydic[temp2[15]],temp2[16],temp2[17],temp2[18])
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18])
     return holderspecs,specs,acctype
 
 def accountresults(url):
@@ -211,6 +222,8 @@ def accountaddition(row,code):
     # result = int(execute_query(connection,query)[0][0])
     accountcounter = result + 1
     wanted = [f"{accountcounter}", f"{code}"] + [row[i] for i in range(len(row))]
+    if wanted[4]=="NULL":
+        wanted[4]="no ID"
     # for i in [7, 8]: #due to issues with inserting null into date field, i've chosen to insert a seemingly random date instead
     #    if wanted[i] == "NULL":
     #        wanted[i] = "1941-09-09"
@@ -342,13 +355,14 @@ if __name__ == '__main__':
     code=holderaddition(one)
     want=accountaddition(two,code)
     print(want)"""
-    controller(["CZ"],[i for i in range(59,64)])
-    """for country in countries[2:10]:
+    controller(["AT"],[i for i in range(30,36)])
+    for country in countries[1:15]:
+        if country=="GR": continue
         start = time.time()
         print("COUNTRY", country)
         controller([country], [])
         thistime = time.time()
-        print(f"The country {country} took ", thistime - start, " seconds")"""
+        print(f"The country {country} took ", thistime - start, " seconds")
     #print(len(accounts))
     #print(accounts[0])
     #row="('20 - Centrale énergétique (Dupont de Nemours)', 'Account holder', 'Former Operator Holding Account', 'closed', 'Luxembourg', '2006-06-08 00:00:00.0', '2014-06-30 10:41:05.0', '')"

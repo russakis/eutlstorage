@@ -16,20 +16,7 @@ def createholders():
   `email` varchar(50)
 );"""
     execute_query(connection,sql)
-def createaccountspage():
-    sql = """CREATE TABLE `AccountsPage` (
-  `rawCode` int PRIMARY KEY,
-  `holdercode` int,
-  `alias` varchar(200),
-  `accountname` varchar(100),
-  `accountid` varchar(20),
-  `acctype` varchar(100),
-  `country` char(2),
-  `status` enum('open','closed','Closure Pending'),
-  `openingdate` date,
-  `closingdate` date);
-  """
-    execute_query(connection,sql)
+
 def createaccounts():
     sql = """CREATE TABLE `Accounts` (
   `rawCode` int PRIMARY KEY,
@@ -37,7 +24,7 @@ def createaccounts():
   `alias` varchar(200),
   `typeofaccount` varchar(100),
   `accname` varchar(100),
-  `id` varchar(20),
+  `id` varchar(30),
   `permitid` varchar(50),
   `permitentry` date,
   `permitexpiry` date,
@@ -64,34 +51,6 @@ def createaccounts():
   `monitoringfirstyear` date,
   `monitoringfinalyear` date
   
-);"""
-    execute_query(connection, sql)
-def createaircrafts():
-    sql = """CREATE TABLE `Aircrafts` (
-  `rawCode` int PRIMARY KEY,
-  `aircraftName` varchar(100),
-  `alias` varchar(200),
-  `holdercode` int,
-  `aircraftid` int,
-  `eccode` varchar(20),
-  `monitoringplan` varchar(100),
-  `monitoringfirstyear` date,
-  `monitoringfinalyear` date,
-  `subsidiary` varchar(200),
-  `parent` varchar(100),
-  `eprtr` varchar(100),
-  `callsign` varchar(20),
-  `firstyear` smallint,
-  `finalyear` smallint,
-  `address1` varchar(100),
-  `address2` varchar(100),
-  `zipcode` varchar(20),
-  `city` varchar(100),
-  `country` char(2),
-  `latitude` varchar(100),
-  `longitude` varchar(100),
-  `mainactivity` tinyint,
-  `status` enum('open','closed','Closure Pending')
 );"""
     execute_query(connection, sql)
 
@@ -148,14 +107,21 @@ def TransactionTypes():
     """
     execute_query(connection,sql)
 
+def ComplianceExplanation():
+    sql ="""CREATE TABLE `ComplianceExplanation`(
+    `code` char(2) PRIMARY KEY,
+    `explanation` varchar(200)
+    )"""
+    execute_query(connection,sql)
+
 def TransactionDetails():
     sql="""CREATE TABLE `TransactionDetails` (
-  `transid` varchar(20) PRIMARY KEY,
+  `transid` varchar(20),
   `transtype` varchar(20),
   `transdate` date,
   `status` varchar(15),
   `originatingregistry` varchar(2),
-  `unittype` varchar(100),
+  `unittype` varchar(200),
   `nbofunits` int,
   `originalcommitment` int,
   `transferringaccount` varchar(200),
@@ -166,11 +132,29 @@ def TransactionDetails():
   `projectid` int,
   `track` varchar(200),
   `expirydate` date
-);"""
+    );"""
+    execute_query(connection,sql)
+
+def createcompliance():
+    sql="""
+    CREATE TABLE `Compliance` (
+  `id` int,
+  `country` varchar(2),
+  `accountkey` int,
+  `phase` varchar(20),
+  `year` int,
+  `allocation` varchar(40),
+  `verifiedemissions` varchar(40),
+  `surrendered` varchar(40),
+  `cumsurrendered` varchar(40),
+  `cumverifiedemissions` varchar(40),
+  `code` varchar(5)
+    );"""
     execute_query(connection,sql)
 
 def alters():
-    sql ="""
+    sql ="""ALTER TABLE `Accounts` ADD INDEX `aliasindex` (`alias`);
+
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
 
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
@@ -178,10 +162,6 @@ ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivity
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
 
 ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
-
-ALTER TABLE Accounts ADD CONSTRAINT UniqueInstallation UNIQUE (country, id);
-
-ALTER TABLE Accounts ADD CONSTRAINT UniqueAccount UNIQUE (alias, holdercode, id, typeofaccount);
 
 ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`abbr2L`);
 
@@ -191,7 +171,7 @@ ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccholder`) REFERENCES `Ho
 
 ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccholder`) REFERENCES `Holders` (`holderName`);
 
-ALTER TABLE `Transactions` ADD FOREIGN KEY (`trantype`) REFERENCES `TransactionTypes` (`code`)
+ALTER TABLE `Transactions` ADD FOREIGN KEY (`trantype`) REFERENCES `TransactionTypes` (`code`);
 
 ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccname`) REFERENCES `Accounts` (`alias`);
 
@@ -199,37 +179,46 @@ ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccname`) REFERENCES `Acco
 
 ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transid`) REFERENCES `Transactions` (`transid`);
 
-ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`transferringType`);
+ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`code`);
 
-;
+ALTER TABLE `Accounts` ADD CONSTRAINT `Unique_Account` UNIQUE (`typeofaccount`,`accname`, `id`,`alias`);
+
+ALTER TABLE `Compliance` ADD CONSTRAINT `Unique_Compliance` UNIQUE (`id`, `country`, `year`);
 """
+    cursor = connection.cursor()
+    cursor.execute(sql,multi=True)
+    connection.commit()
 
-    sql2="""ALTER TABLE Aircrafts ADD CONSTRAINT uqaircraft UNIQUE KEY(country,aircraftid);
-
-ALTER TABLE AccountsPage ADD CONSTRAINT uqaccount UNIQUE KEY(alias,acctype);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
-
-ALTER TABLE `Aircrafts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
-
-ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);
-
-ALTER TABLE `AccountsPage` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
-
-
-"""
-    execute_query(connection, sql)
-
+def testing(indices):
+    sql = ["ALTER TABLE `Accounts` ADD INDEX `aliasindex` (`alias`);",
+           "ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);",
+           "ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);",
+           "ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);",
+           "ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`abbr2L`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringregistry`) REFERENCES `Countries` (`abbr2L`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccholder`) REFERENCES `Holders` (`holderName`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccholder`) REFERENCES `Holders` (`holderName`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`trantype`) REFERENCES `TransactionTypes` (`code`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccname`) REFERENCES `Accounts` (`alias`);",
+           "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccname`) REFERENCES `Accounts` (`alias`);",
+           "ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transid`) REFERENCES `Transactions` (`transid`);",
+           "ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`code`);",
+           "ALTER TABLE `Accounts` ADD CONSTRAINT `Unique_Account` UNIQUE (`typeofaccount`,`accname`, `id`,`alias`);",
+           "ALTER TABLE `Compliance` ADD CONSTRAINT `Unique_Compliance` UNIQUE (`id`, `country`, `year`);"]
+    if indices=="":
+        for query in sql:
+            execute_query(connection, query)
+    for query in sql[indices[0]:indices[1]]:
+        execute_query(connection,query)
 
 connection=create_server_connection('localhost','root','')
 ignite(connection, "storage")
 #createholders()
 #createaccounts()
-#createaircrafts()
-#createaccountspage()
-#TransactionTypes()
+TransactionTypes()
 TransactionDetails()
-#Transactions()
+Transactions()
+#createcompliance()
 #alters()
+testing([5,14])

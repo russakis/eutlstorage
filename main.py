@@ -7,11 +7,10 @@ from mysql.connector import Error
 # import pandas as pd
 import requests
 #import urllib.request
-# import time
 from bs4 import BeautifulSoup
 #import re
 import time
-
+#from compliance import liststringsum
 
 def cleanitem(item):
     item = item.replace('\n', '')
@@ -24,6 +23,12 @@ def cleanitem(item):
         return item.rstrip()
     else:
         return "NULL"
+
+def liststringsum(listyboi):
+    result=""
+    for element in listyboi:
+        result+=str(element)+','
+    return result[:-1]
 
 def create_server_connection(host_name, user_name, user_password):
     connection = None
@@ -87,6 +92,7 @@ def execute_query(connection, query):
         print("Query successful")
     except Error as err:
         print(f"Error: '{err}'")
+        return "ERROR"
 
 
 def create_table(connection, tablename):
@@ -189,7 +195,7 @@ def indholder(url): #function to handle the individual holder information plus t
         thisnew[13]=countrydic[thisnew[13]]#turning country names to two character identifiers
     except:
         print(thisnew[13],thisnew[12])
-        thisnew[13]="NR"
+        thisnew[13]="AV"
     holder =(holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email)=tuple([thisnew[i] for i in [2,4,8,9,10,11,12,13,14,15,16]])
     if titles[0][7:-7] == "Aircraft Operator Holding Account Information":
         installation = (airname, airid, eccode, monitoringplan, monfirstyear,monfinalyear, subsidiary,parent,eprtr,callsign,firstyear,lastyear,address,address2,zipcode,city,country,latitude,longitude,mainactivityholder,status) \
@@ -197,11 +203,67 @@ def indholder(url): #function to handle the individual holder information plus t
     else:
         installation = (instname,instid, permitid,permitentrydate,permitexpirationdate,subsidiaryundertaking,parentundertaking,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status) \
             = tuple([thisnew[i] for i in [18,17,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,5]])
-    return (holder,installation,len(installation)==21)#returns holder, installation, a boolean for isAircraft
+
+    """temp = soup.find_all("span", attrs={'class': 'classictext'})
+    titles = soup.find_all("span", attrs={'class': 'titlelist'})
+    for title in titles:
+        if cleanitem(title.text) == "EU ETS Phase":
+            startingpoint = titles.index(title)
+            break
+    test = [item.text for item in temp][startingpoint:]
+    # a very stupid filtering
+    filtered = []
+    test_iter = iter(test)
+    prev = "mynamesjeff"
+    prevprev = "mynamesjeff"
+    for elem in test_iter:
+        if (prev == '\n' and prevprev == '\n'):
+            del filtered[-1]
+            del filtered[-1]
+            filtered.append(elem)
+            prevprev = "idontreallycareanymore"
+            prev = "idontreallycareanymore"
+        else:
+            filtered.append(elem)
+            prevprev = prev
+            prev = elem
+    newnew = [cleanitem(item) for item in filtered]
+    complianceres = [newnew[x:x + 8] for x in range(0, len(newnew), 8)]
+    compl = complianceres[:26]"""
+    titles = soup.find_all("span", attrs={'class': 'titlelist'})
+    for title in titles:
+        if cleanitem(title.text) == "EU ETS Phase":
+            startingpoint = titles.index(title)
+            break
+    trials = soup.find_all('td', attrs={'class': 'bgcelllist'})
+    trials = trials[startingpoint:]
+    children = []
+    for trial in trials:
+        child = trial.findChildren()
+        if len(child) > 1:
+            children.append(liststringsum([cleanitem(item.text) for item in child if cleanitem(item.text) != 'NULL']))
+        else:
+            children.append(cleanitem(child[0].text))
+    yearutil = [[f"2005-2007", f"{year}"] for year in range(2005, 2008)] + [[f"2008-2012", f"{year}"] for year in
+                                                                            range(2008, 2013)] + [
+                   [f"2013-2020", f"{year}"] for year in range(2013, 2020)] + [[f"2020-2030", f"{year}"] for year in
+                                                                               range(2020, 2031)]
+    complianceres = [children[x:x + 6] for x in range(0, len(children), 6)]
+    # correct = list(zip(yearutil,complianceres[26]))
+    compl = map(list.__add__, yearutil, complianceres)
+    return (holder,installation,len(installation)==21,compl)#returns holder, installation, a boolean for isAircraft
 
 def holderspage(url):
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    while True:
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+        except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
+            print("Found an exception")
+            continue
+        break
+
+
     temp3 = soup.find_all("a", attrs={'class': 'listlink'})
     templinks = [startingurl + obj['href'][11:] for obj in temp3]
     reallinks = [templinks[1+i] for i in range(len(templinks)-1) if i%3==0]
@@ -230,23 +292,29 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                 holderlinks = holderspage(url)
                 #with the links we want to crawl these pages and store the individual information
                 for link in holderlinks:
-                    result, instresult, isAircraft = indholder(link)
+                    result, instresult, isAircraft,compl = indholder(link)
                     code = holderaddition(result)
                     if isAircraft:
-                        aircraftaddition(instresult, code)
+                        _, acckey = aircraftaddition(instresult, code)
+                        complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
                     else:
-                        accountaddition(instresult, code)
+                        _, acckey = accountaddition(instresult, code)
+                        complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
         except IndexError:
             url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
             holderlinks = holderspage(url)
             # with the links we want to crawl these pages and store the individual information
             for link in holderlinks:
-                result,instresult,isAircraft = indholder(link)
+                result,instresult,isAircraft,compl = indholder(link)
                 code = holderaddition(result)
                 if isAircraft:
-                    aircraftaddition(instresult,code)
+                    _, acckey = aircraftaddition(instresult, code)
+                    complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
+
                 else:
-                    accountaddition(instresult,code)
+                    _, acckey = accountaddition(instresult, code)
+                    complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
+
 
 def holderaddition(row):
     (holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email) = row
@@ -287,7 +355,7 @@ def accountaddition(row,code):
     result=cursor.fetchall()[0][0]
     #result = int(execute_query(connection,query)[0][0])
     accountcounter=result+1
-    wanted=[f"{accountcounter}",f"{code}","NULL","Operator Holding Account"]+[row[i] for i in range(19)]
+    wanted=[f"{accountcounter}",f"{code}","no alias","Operator Holding Account"]+[row[i] for i in range(19)]
     #for i in [7, 8]: #due to issues with inserting null into date field, i've chosen to insert a seemingly random date instead
     #    if wanted[i] == "NULL":
     #        wanted[i] = "1941-09-09"
@@ -303,8 +371,10 @@ def accountaddition(row,code):
     #            f"{wanted[21]},\"{wanted[22]}\")"
     #insert into Accounts (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
 
-    addaccount(connection,wantedstr)
-    return wanted
+    co=addaccount(connection,wantedstr)
+    if co=="ERROR":
+        return wanted,accountcounter-1
+    else: return wanted,accountcounter
 
 def aircraftaddition(row,holdercode):
     (airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent,
@@ -317,7 +387,7 @@ def aircraftaddition(row,holdercode):
     result=cursor.fetchall()[0][0]
     #result = int(execute_query(connection,query)[0][0])
     accountcounter=result+1
-    wanted=[f"{accountcounter}"]+[row[0],"NULL",f"{holdercode}"]+ [row[i] for i in range(1,21)]
+    wanted=[f"{accountcounter}"]+[row[0],"no alias",f"{holdercode}","Aircraft Operator Account"]+ [row[i] for i in range(1,21)]
     if wanted[3][0]==0:
         print("WE WOULD LIKE TO INFORM YOU YOU DONE FUCKED UP")
     #for i in [6,7]:
@@ -333,23 +403,48 @@ def aircraftaddition(row,holdercode):
     #wantedstr=f"({wanted[0]},\"{wanted[1]}\",{wanted[2]},{wanted[3]},\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
     #          f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
     #             f"{wanted[21]},\"{wanted[22]}\")"
-    addaircraft(connection,wantedstr)
-    return wanted
+    co = addaircraft(connection, wantedstr)
+    if co == "ERROR":
+        return wanted, accountcounter - 1
+    else:
+        return wanted, accountcounter
+
+def complianceaddition(row,code):
+    global connection
+    wantedstr = ""
+    for lis in row:
+        wanted=code + [lis[i] for i in range(0,len(lis))]
+        wantedstr+="("
+        for element in wanted:
+            if element == "NULL" or element.isnumeric():
+                wantedstr += f"{element},"
+            else:
+                wantedstr += "\"" + element + "\","
+        wantedstr = wantedstr[:-1] + "),\n"
+    wantedstr=wantedstr[:-2]+";"
+    addcompliance(connection,wantedstr)
+
+def addcompliance(connection,attributes):
+    sql= f"""
+        INSERT INTO Compliance (id,country,accountkey,phase,year,allocation,verifiedemissions,surrendered,cumsurrendered,cumverifiedemissions,code)
+        VALUES {attributes}"""
+    execute_query(connection, sql)
 
 def addaccount(connection,attributes):
     sql = f"""
         INSERT INTO Accounts (rawCode,holdercode, alias,typeofaccount, accname,id,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-        VALUES {attributes}
-        """
-    execute_query(connection, sql)
+        VALUES {attributes}"""
+    co= execute_query(connection, sql)
+    return co
 
 def addaircraft(connection, attributes):
     #(airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent, eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder)
     sql = f"""
-        INSERT INTO Accounts (rawCode,accname,alias ,holdercode,id,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
+        INSERT INTO Accounts (rawCode,accname,alias ,holdercode,typeofaccount,id,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
         VALUES {attributes}
         """
-    execute_query(connection, sql)
+    co=execute_query(connection, sql)
+    return co
 
 def addholder(connection,attributes):
     sql = f"""
@@ -506,13 +601,14 @@ if __name__ == '__main__':
     #holdercontroller(['BG'],[])
     #countries.remove("GR")
     #countries.remove("BG")
-
-    for country in countries[:10]:
+    #url='https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91982&action=all&languageCode=en&returnURL=resultList.currentPageNumber%3D1%26installationName%3D%26accountHolder%3D%26permitIdentifier%3D%26nextList%3DNext%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
+    for country in countries[10:15]:
+        if country=="GR":continue
         start = time.time()
         print("COUNTRY",country)
         holdercontroller([country],[])
         thistime=time.time()
-        print(f"The country {country} took ",thistime-start," seconds")    #nl 32pages
+        print(f"The country {country} took ",thistime-start," seconds")
     #holdercontroller(countries[12:],[])
     #print(accounts)
     #countriestable(connection)
