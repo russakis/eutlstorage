@@ -115,8 +115,15 @@ def indaccount(url):
 
 def accountresults(url):
     # url = 'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes=GR&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    while True:
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+        except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
+            print("found an exception")
+            continue
+        break
+
     # temp = soup.find_all("input", attrs={'name': 'resultList.lastPageNumber',
     #                                     'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")
     # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
@@ -355,9 +362,7 @@ if __name__ == '__main__':
     code=holderaddition(one)
     want=accountaddition(two,code)
     print(want)"""
-    controller(["AT"],[i for i in range(30,36)])
-    for country in countries[1:15]:
-        if country=="GR": continue
+    for country in countries[27:]:
         start = time.time()
         print("COUNTRY", country)
         controller([country], [])

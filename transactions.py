@@ -1,10 +1,11 @@
 import requests
 import urllib.request
-# import time
 from bs4 import BeautifulSoup
 import re
 from main import ignite,execute_query,create_server_connection,createcountrydic,cleanitem
 import time
+import itertools
+
 
 def transcontroller(countrypairs,pagestosearch):
     accounts=[]
@@ -15,7 +16,7 @@ def transcontroller(countrypairs,pagestosearch):
             #url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
             while True:
                 try:
-                    url = f'https://ec.europa.eu/clima/ets/transaction.do?languageCode=en&startDate=&endDate=&transactionStatus=4&fromCompletionDate=&toCompletionDate=&transactionID=&transactionType=-1&suppTransactionType=-1&originatingRegistry={countrypair[0]}&destinationRegistry={countrypair[0]}&originatingAccountType=-1&destinationAccountType=-1&originatingAccountIdentifier=&destinationAccountIdentifier=&originatingAccountHolder=&destinationAccountHolder=&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
+                    url = f'https://ec.europa.eu/clima/ets/transaction.do?languageCode=en&startDate=&endDate=&transactionStatus=4&fromCompletionDate=&toCompletionDate=&transactionID=&transactionType=-1&suppTransactionType=-1&originatingRegistry={countrypair[0]}&destinationRegistry={countrypair[1]}&originatingAccountType=-1&destinationAccountType=-1&originatingAccountIdentifier=&destinationAccountIdentifier=&originatingAccountHolder=&destinationAccountHolder=&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
                     response = requests.get(url)
                 except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
                     print("Found an exception")
@@ -56,18 +57,17 @@ def transactions(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
     temp = soup.find_all("span", attrs={'class': 'classictext'})  # ,type="text", name= "resultList.lastPageNumber")
+    if len(temp)==0:
+        return "()"
     results = [cleanitem(item.string) for item in temp]
-    print(results)
     temp = soup.find_all("a", attrs={'class': 'listlink'})
     links = [startingurl+i["href"][11:] for i in temp][1:]
-    print(links)
-    print(len(links))
     for i in range(len(results)):
         if i%15==4 or i%15==9:
             results[i]=countrydic[results[i]]
     transactions=[]
-    for i in range(20):
-        rowlen=len(results)//20
+    for i in range(len(results)//15):
+        rowlen=15#len(results)//20
         transactions.append([results[rowlen*i+j] for j in range(rowlen)])
     for row in transactions:
         wanted = row
@@ -80,9 +80,14 @@ def transactions(url):
             else:
                 wantedstr += "\'" + element + "\',"
         wantedstr = "(" + wantedstr[:-1] + ")"
-        addtransaction(wantedstr)
-    for link in links:
-        transactiondetails(link)
+        if wantedstr!="()":
+            "dsf"
+            #print(wantedstr)
+            addtransaction(wantedstr)
+    if len(temp)!=0:
+        for link in links:
+            "dsf"
+            transactiondetails(link)
     return wantedstr
 
 def transactiondetails(url):
@@ -163,8 +168,7 @@ if __name__ == '__main__':
         pages=0"""
     countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'EU', 'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT',
                  'LV', 'LI', 'LT', 'LU', 'MT', 'NL', 'XI', 'NO', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB']
-
-    #transactions()
+    combs = list(itertools.product(*[countries,countries]))
     """url='https://ec.europa.eu/clima/ets/transaction.do?languageCode=en'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -175,10 +179,9 @@ if __name__ == '__main__':
     print([item.string for item in temp][24:89])
     suptransvalues=[item["value"] for item in temp[24:89]]
 """
-    url = 'https://ec.europa.eu/clima/ets/transaction.do?languageCode=en&startDate=&endDate=&transactionStatus=4&fromCompletionDate=&toCompletionDate=&transactionID=&transactionType=-1&suppTransactionType=-1&originatingRegistry=GR&destinationRegistry=GR&originatingAccountType=-1&destinationAccountType=-1&originatingAccountIdentifier=&destinationAccountIdentifier=&originatingAccountHolder=&destinationAccountHolder=&currentSortSettings=&resultList.currentPageNumber=0&nextList=Next%3E'
-    start=time.time()
-    transcontroller([["GR","GR"]],[i for i in range(113,233)])
-    end=start-time.time()
-    print(end, " seconds")
-    #url='https://ec.europa.eu/clima/ets/transaction.do?languageCode=en&startDate=&endDate=&transactionStatus=4&fromCompletionDate=&toCompletionDate=&transactionID=&transactionType=-1&suppTransactionType=-1&originatingRegistry=AT&destinationRegistry=BE&originatingAccountType=-1&destinationAccountType=-1&originatingAccountIdentifier=&destinationAccountIdentifier=&originatingAccountHolder=&destinationAccountHolder=&search=Search&currentSortSettings=&resultList.currentPageNumber=1'
-    #transactions(url)
+    for comb in combs[79:]:
+        print("combination pair",comb)
+        start=time.time()
+        transcontroller([comb],[])
+        end=time.time()-start
+        print(end, " seconds")

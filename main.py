@@ -602,8 +602,7 @@ if __name__ == '__main__':
     #countries.remove("GR")
     #countries.remove("BG")
     #url='https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91982&action=all&languageCode=en&returnURL=resultList.currentPageNumber%3D1%26installationName%3D%26accountHolder%3D%26permitIdentifier%3D%26nextList%3DNext%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    for country in countries[10:15]:
-        if country=="GR":continue
+    for country in countries[30:]:
         start = time.time()
         print("COUNTRY",country)
         holdercontroller([country],[])
