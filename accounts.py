@@ -70,7 +70,7 @@ def indaccount(url):
     thirdcolumn=soup.find_all("span",attrs={'class':'resultlink'})
     if thirdcolumn!=[]:
         try:
-            information= information[:2]+[missingboi[0].string[7:-6]]+information[2:]
+            information= information[:2]+[thirdcolumn[0].string[7:-6]]+information[2:]
         except IndexError:
             information=information[:2]+[""]+information[2:]
     results= soup.find_all("font",attrs={'class':'bordertbheadfont'})
