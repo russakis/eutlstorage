@@ -11,7 +11,7 @@ from main import ignite
 from main import execute_query
 
 def mainactivity(connection):
-    ignite(connection,"storage")
+    ignite(connection,"EUTL")
     url = 'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=21&search=Search&searchType=oha&currentSortSettings='
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -47,7 +47,7 @@ def trantypes(connection):
             else: temp.append(i)
         inserts.append(temp)
     print(inserts)
-    ignite(connection,"storage")
+    ignite(connection,"EUTL")
     for insert in inserts:
         strin="\""+insert[0]+"\","+str(insert[1])+","+str(insert[2])+","+insert[3]
         sql = f"""INSERT INTO TransactionTypes (code,transferringType,acquiringType,sholio)
@@ -66,3 +66,4 @@ if __name__ == '__main__':
     accountcounter = 1
     connection=create_server_connection('localhost','root','')
     trantypes(connection)
+    mainactivity(connection)

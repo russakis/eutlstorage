@@ -6,7 +6,7 @@ import urllib.request
 # import time
 from bs4 import BeautifulSoup
 import re
-from main import ignite,execute_query,create_server_connection,createcountrydic
+from main import ignite,execute_query,create_server_connection,createcountrydic,cleanitem
 import time
 
 def exploration():
@@ -40,15 +40,9 @@ def exploration():
         categories = [item.string for item in results]
         l = []
         for item in categories:
-            tempitem = item
-            item = item.replace('\n', '')
-            item = item.replace('\r', '')
-            item = item.replace('\t', '')
-            item = item.replace('\xa0', '')
-            item = item.replace('\"', '\'')
-            item = item.lstrip()
+            item=cleanitem(item)
             # if item == '': print(newarr.index(tempitem))
-            if item != '': l.append(item.rstrip())
+            if item != '': l.append(item)
         temp.append(l)
     for li in temp:
         print(values[temp.index(li)])
@@ -71,13 +65,8 @@ def indaccount(url):
             continue
         break
     for item in temp:
-        item=item.replace('\n', '')
-        item=item.replace('\r', '')
-        item=item.replace('\t', '')
-        item=item.replace('\xa0', '')
-        item = item.replace('\"','\'')
-        item = item.lstrip()
-        if item!="":temp2.append(item.rstrip())
+        item=cleanitem(item)
+        if item!="":temp2.append(item)
         else: temp2.append("NULL")
     missingboi=soup.find_all("span",attrs={'class':'resultlink'})
     if missingboi!=[]:
@@ -123,12 +112,6 @@ def accountresults(url):
             print("found an exception")
             continue
         break
-
-    # temp = soup.find_all("input", attrs={'name': 'resultList.lastPageNumber',
-    #                                     'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")
-    # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
-    # pages = temp[0]['value']
-    # temp2 = soup.find_all("td", attrs={'class': 'bgtitlelist'})
     temp3 = soup.find_all("a", attrs={'class': 'listlink'})
     templinks = [startingurl + obj['href'][11:] for obj in temp3]
     #reallinks = [templinks[1 + i] for i in range(len(templinks) - 1) if i % 3 == 0]
@@ -171,9 +154,6 @@ def controller(countries,pagestosearch):
                 code = holderaddition(result)
                 accountaddition(instresult, code)
     return (holders,accounts)
-
-def holderupdate(row):
-    "asdf"
 
 def operatingupdate(row,code):
     (nickname, accname, id, acctype, country, accstatus, accopening, accclosing)=row
@@ -321,20 +301,12 @@ if __name__ == '__main__':
     holdercounter = 1
     accountcounter = 1
     connection=create_server_connection('localhost','root','')
-    ignite(connection,"storage")
+    ignite(connection,"EUTL")
     countrydic=createcountrydic(connection)
     triedandtrue=[]
     #for abb in abbrs:
     #    url=f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={abb}&accountHolder=&search=Search&searchType=account&currentSortSettings=&resultList.currentPageNumber=1'
-    """response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    temp = soup.find_all("input", attrs={'name': 'resultList.lastPageNumber',
-                                         'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")"""
     # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
-    """try:
-        pages = temp[0]['value']
-    except IndexError:
-        pages=0"""
     countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'EU', 'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'LV', 'LI', 'LT', 'LU', 'MT', 'NL', 'XI', 'NO', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE','GB']
     """url='https://ec.europa.eu/clima/ets/account.do?languageCode=en'
     response = requests.get(url)
@@ -345,8 +317,6 @@ if __name__ == '__main__':
     print(attributes.split(",")[-1][:-1])
     url='https://ec.europa.eu/clima/ets/singleAccount.do?accountID=90554&action=details&languageCode=en&returnURL=resultList.currentPageNumber%3D9%26accountHolder%3D%26nextList%3DNext%26searchType%3Daccount%26currentSortSettings%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
     one,two,three=indaccount(url)
-    print(one)
-    print(two)
     wanted=two
     wantedstr = ""
     for element in wanted:
@@ -362,7 +332,7 @@ if __name__ == '__main__':
     code=holderaddition(one)
     want=accountaddition(two,code)
     print(want)"""
-    for country in countries[27:]:
+    for country in countries[9:15]:
         start = time.time()
         print("COUNTRY", country)
         controller([country], [])

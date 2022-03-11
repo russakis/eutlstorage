@@ -1,8 +1,12 @@
 from main import execute_query,create_server_connection,ignite
 
+def createdb():
+    sql="""CREATE DATABASE EUTL;"""
+    execute_query(connection,sql)
+
 def createholders():
     sql = """CREATE TABLE `Holders` (
-  `rawCode` int PRIMARY KEY,
+  `rawCode` int PRIMARY KEY AUTO_INCREMENT,
   `holderName` varchar(255) UNIQUE,
   `companyno` varchar(255),
   `legalid` varchar(30),
@@ -19,7 +23,7 @@ def createholders():
 
 def createaccounts():
     sql = """CREATE TABLE `Accounts` (
-  `rawCode` int PRIMARY KEY,
+  `rawCode` int PRIMARY KEY AUTO_INCREMENT,
   `holdercode` int,
   `alias` varchar(200),
   `typeofaccount` varchar(100),
@@ -152,6 +156,17 @@ def createcompliance():
     );"""
     execute_query(connection,sql)
 
+def createcompliancestar():
+    sql = """CREATE TABLE 'ComplianceStar'(
+    `id` int,
+    `country` varchar(2),
+    `accountkey` int,
+    `phase` varchar(20),
+    `year` int,
+    `allocation` varchar(40)
+    );"""
+    execute_query(connection,sql)
+
 def alters():
     sql ="""ALTER TABLE `Accounts` ADD INDEX `aliasindex` (`alias`);
 
@@ -159,9 +174,9 @@ ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`raw
 
 ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);
 
-ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`abbr2L`);
 
-ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);
+ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`abbr2L`);
 
 ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`abbr2L`);
 
@@ -190,11 +205,14 @@ ALTER TABLE `Compliance` ADD CONSTRAINT `Unique_Compliance` UNIQUE (`id`, `count
     connection.commit()
 
 def testing(indices):
-    sql = ["ALTER TABLE `Accounts` ADD INDEX `aliasindex` (`alias`);",
+    sql = [ "ALTER TABLE `Accounts` ADD CONSTRAINT `Unique_Account` UNIQUE (`typeofaccount`,`accname`, `id`,`alias`);",
+           "ALTER TABLE `Compliance` ADD CONSTRAINT `Unique_Compliance` UNIQUE (`id`, `country`, `year`);",
+            "ALTER TABLE `Accounts` ADD INDEX `aliasindex` (`alias`);",
+            "ALTER TABLE `Countries` ADD INDEX `country` (`abbr2L`);",
            "ALTER TABLE `Accounts` ADD FOREIGN KEY (`holdercode`) REFERENCES `Holders` (`rawCode`);",
            "ALTER TABLE `Accounts` ADD FOREIGN KEY (`mainactivity`) REFERENCES `MainActivityType` (`kwdikos`);",
-           "ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);",
-           "ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`eu_abbr2L`);",
+           "ALTER TABLE `Accounts` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`abbr2L`);",
+           "ALTER TABLE `Holders` ADD FOREIGN KEY (`country`) REFERENCES `Countries` (`abbr2L`);",
            "ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringregistry`) REFERENCES `Countries` (`abbr2L`);",
            "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringregistry`) REFERENCES `Countries` (`abbr2L`);",
            "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccholder`) REFERENCES `Holders` (`holderName`);",
@@ -203,17 +221,30 @@ def testing(indices):
            "ALTER TABLE `Transactions` ADD FOREIGN KEY (`transferringaccname`) REFERENCES `Accounts` (`alias`);",
            "ALTER TABLE `Transactions` ADD FOREIGN KEY (`acquiringaccname`) REFERENCES `Accounts` (`alias`);",
            "ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transid`) REFERENCES `Transactions` (`transid`);",
-           "ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`code`);",
-           "ALTER TABLE `Accounts` ADD CONSTRAINT `Unique_Account` UNIQUE (`typeofaccount`,`accname`, `id`,`alias`);",
-           "ALTER TABLE `Compliance` ADD CONSTRAINT `Unique_Compliance` UNIQUE (`id`, `country`, `year`);"]
+           "ALTER TABLE `TransactionDetails` ADD FOREIGN KEY (`transtype`) REFERENCES `TransactionTypes` (`code`);"
+          ]
     if indices=="":
         for query in sql:
             execute_query(connection, query)
-    for query in sql[indices[0]:indices[1]]:
-        execute_query(connection,query)
+    else:
+        for query in sql[indices[0]:indices[1]]:
+            execute_query(connection,query)
+
+def lettherebelight():
+    createdb()
+    ignite(connection,"EUTL")
+    createaccounts()
+    createholders()
+    createcompliance()
+    #createcompliancestar()
+    createmainactivity()
+    createcountries()
+    Transactions()
+    TransactionDetails()
+    TransactionTypes()
 
 connection=create_server_connection('localhost','root','')
-ignite(connection, "storage")
+"""ignite(connection, "storage")
 #createholders()
 #createaccounts()
 TransactionTypes()
@@ -222,3 +253,8 @@ Transactions()
 #createcompliance()
 #alters()
 testing([5,14])
+"""
+lettherebelight()
+ignite(connection, "EUTL")
+
+testing("")
