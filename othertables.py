@@ -9,6 +9,8 @@ import re
 from main import create_server_connection
 from main import ignite
 from main import execute_query
+from utilityfuncs import *
+
 
 def mainactivity(connection):
     ignite(connection,"EUTL")

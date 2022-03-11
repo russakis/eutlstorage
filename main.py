@@ -6,55 +6,8 @@ import requests
 from bs4 import BeautifulSoup
 #import re
 import time
+from utilityfuncs import *
 #from compliance import liststringsum
-
-def cleanitem(item):
-    item = item.replace('\n', '')
-    item = item.replace('\r', '')
-    item = item.replace('\t', '')
-    item = item.replace('\xa0', '')
-    item = item.replace('\"', '\'')
-    item = item.lstrip()
-    if item != '':
-        return item.rstrip()
-    else:
-        return "NULL"
-
-def liststringsum(listyboi):
-    result=""
-    for element in listyboi:
-        result+=str(element)+','
-    return result[:-1]
-
-def create_server_connection(host_name, user_name, user_password):
-    connection = None
-    try:
-        connection = mysql.connector.connect(
-            host=host_name,
-            user=user_name,
-            passwd=user_password
-        )
-        print("MySQL Database connection successful")
-    except Error as err:
-        print(f"Error: '{err}'")
-
-    return connection
-
-def create_database(connection, query):
-    cursor = connection.cursor()
-    try:
-        cursor.execute(query)
-        print("Database created successfully")
-    except Error as err:
-        print(f"Error: '{err}'")
-
-
-def ignite(connection, databasename):  # διαλέγω τη βάση
-    sql = (f"USE {databasename}")
-    cursor = connection.cursor()
-    cursor.execute(sql)
-    print(f"connected to {databasename}")
-
 
 def getcountries(connection):
     cursor = connection.cursor()
@@ -62,70 +15,6 @@ def getcountries(connection):
     cursor.execute(sql)
     result = cursor.fetchall()
     return dict((y,x) for x,y in result)
-
-
-def create_db_connection(host_name, user_name, user_password, db_name):
-    connection = None
-    try:
-        connection = mysql.connector.connect(
-            host=host_name,
-            user=user_name,
-            passwd=user_password,
-            database=db_name
-        )
-        print("MySQL Database connection successful")
-    except Error as err:
-        print(f"Error: '{err}'")
-
-    return connection
-
-def execute_query(connection, query):
-    cursor = connection.cursor()
-    try:
-        cursor.execute(query)
-        connection.commit()
-        print("Query successful")
-    except Error as err:
-        print(f"Error: '{err}'")
-        return "ERROR"
-
-def create_table(connection, tablename):
-    create_table = f"""
-    CREATE TABLE IF NOT EXISTS {tablename} (
-      id VARCHAR(40) PRIMARY KEY UNIQUE,
-      accname VARCHAR(50) NOT NULL,
-      name VARCHAR(50),
-      status VARCHAR(10) NOT NULL,
-      address VARCHAR(40) NOT NULL,
-      zipcode VARCHAR(15),
-      city VARCHAR(30),
-      country VARCHAR(30),
-      registry VARCHAR(30),
-      typeofacc VARCHAR(50)
-      );
-     """
-    connection = create_db_connection("localhost", "root", "", "storage")  # Connect to the Database
-    execute_query(connection, create_table)  # Execute our defined query
-
-def delete_table(connection):
-    create_teacher_table = """
-    drop table teacher;"""
-    connection = create_db_connection("localhost", "root", "", "trial")  # Connect to the Database
-    execute_query(connection, create_teacher_table)  # Execute our defined query
-
-def accounts():
-    url = 'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes=GR&accountHolder=&search=Search&searchType=account&currentSortSettings='
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    temp = soup.find_all("input", attrs={'name': 'resultList.lastPageNumber',
-                                         'type': 'text'})  # ,type="text", name= "resultList.lastPageNumber")
-    # results = soup.find_all("span",class_ ="resultlinksmall",string= "                         Details - All Phases")
-    pages = temp[0]['value']
-
-    temp2 = soup.find_all("td", attrs={'class': 'bgtitlelist'})
-    temp3 = soup.find_all("a", attrs={'class': 'listlink'})
-    templinks = [startingurl + obj['href'][11:] for obj in temp3]
-    print(templinks[0])
 
 def indholder(url): #function to handle the individual holder information plus the account of the operating account holder page
     while True:
@@ -170,7 +59,7 @@ def indholder(url): #function to handle the individual holder information plus t
             break
     trials = soup.find_all('td', attrs={'class': 'bgcelllist'})
     trials = trials[startingpoint:]
-    """children = []
+    children = []
     for trial in trials:
         child = trial.findChildren()
         if len(child) > 1:
@@ -183,8 +72,8 @@ def indholder(url): #function to handle the individual holder information plus t
                                                                                range(2020, 2031)]
     complianceres = [children[x:x + 6] for x in range(0, len(children), 6)]
     # correct = list(zip(yearutil,complianceres[26]))
-    compl = map(list.__add__, yearutil, complianceres)"""
-    return (holder,installation,len(installation)==21,trials)#returns holder, installation, a boolean for isAircraft
+    compl = map(list.__add__, yearutil, complianceres)
+    return (holder,installation,len(installation)==21,compl)#returns holder, installation, a boolean for isAircraft
 
 def holderspage(url):
     while True:
@@ -227,10 +116,10 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                     code = holderaddition(result)
                     if isAircraft:
                         _, acckey = aircraftaddition(instresult, code)
-                        #complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
+                        complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
                     else:
                         _, acckey = accountaddition(instresult, code)
-                        #complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
+                        complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
         except IndexError:
             url = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={country}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&search=Search&searchType=oha&currentSortSettings='
             holderlinks = holderspage(url)
@@ -240,12 +129,11 @@ def holdercontroller(countries,pagestosearch):#countries in list form, pagestose
                 code = holderaddition(result)
                 if isAircraft:
                     _, acckey = aircraftaddition(instresult, code)
-                    #complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
+                    complianceaddition(compl, [f"{instresult[1]}", f"{instresult[16]}", f"{acckey}"])
 
                 else:
                     _, acckey = accountaddition(instresult, code)
-                    #complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
-
+                    complianceaddition(compl, [f"{instresult[1]}", f"{instresult[14]}", f"{acckey}"])
 
 def holderaddition(row):
     (holdername,compno,legalid,address,address2,zipcode,city,country,tel1,tel2,email) = row
@@ -274,7 +162,6 @@ def holderaddition(row):
         return rawCode
     else: #otherwise return the rawCode so as to insert new account/aircraft
         return result[0][0]
-
 
 def accountaddition(row,code):
     (instname, instid, permitid, permitentrydate, permitexpirationdate, subsidiaryundertaking, parentundertaking, eprtr,
@@ -339,49 +226,6 @@ def complianceaddition(row,code):
         wantedstr = wantedstr[:-1] + "),\n"
     wantedstr=wantedstr[:-2]+";"
     addcompliance(connection,wantedstr)
-
-def addcompliance(connection,attributes):
-    sql= f"""
-        INSERT INTO Compliance (id,country,accountkey,phase,year,allocation,verifiedemissions,surrendered,cumsurrendered,cumverifiedemissions,code)
-        VALUES {attributes}"""
-    execute_query(connection, sql)
-
-def addaccount(connection,attributes):
-    sql = f"""
-        INSERT INTO Accounts (rawCode,holdercode, alias,typeofaccount, accname,id,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-        VALUES {attributes}"""
-    co= execute_query(connection, sql)
-    return co
-
-def addaircraft(connection, attributes):
-    #(airname, airid, eccode, monitoringplan, monfirstyear, monfinalyear, subsidiary, parent, eprtr, callsign, firstyear,lastyear, address, address2, zipcode, city, country, latitude, longitude, mainactivityholder)
-    sql = f"""
-        INSERT INTO Accounts (rawCode,accname,alias ,holdercode,typeofaccount,id,eccode,monitoringplan,monitoringfirstyear,monitoringfinalyear,subsidiary,parent,eprtr,callsign,firstyear,finalyear,address,address2,zipcode,city,country,latitude,longitude,mainactivity,status)
-        VALUES {attributes}
-        """
-    co=execute_query(connection, sql)
-    return co
-
-def addholder(connection,attributes):
-    sql = f"""
-        INSERT INTO Holders (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
-        VALUES {attributes}
-        """
-    execute_query(connection, sql)
-
-def addrow(connection, attributes, table, columns):
-    sql = f"""
-    insert into {table}(id,accname,name,status,address,zipcode,city,country,registry,typeofacc)
-    values {attributes}
-    """
-    execute_query(connection, sql)
-
-def addcountry(connection, attributes, table, columns):
-    sql = f"""
-    insert into {table}(eu_abbr2L,name,onoma,abbr2L,abbr3L,EU,euro,EFTA,continent)
-    values {attributes}
-    """
-    execute_query(connection, sql)
 
 def createcountrydic(connection):
     countrydic = getcountries(connection)
@@ -479,33 +323,21 @@ if __name__ == '__main__':
     ignite(connection,"EUTL")
     countrydic=createcountrydic(connection)
     #holderurl = f'https://ec.europa.eu/clima/ets/oha.do?form=oha&languageCode=en&account.registryCodes={pageno}&accountHolder=&installationIdentifier=&installationName=&permitIdentifier=&mainActivityType=-1&searchType=oha&currentSortSettings=&resultList.currentPageNumber={pageno}&nextList=Next%3E'
-    """url = 'https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91955&action=all&languageCode=en&returnURL=installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    results = soup.find_all("span",class_ ="classictext")
-    print(results[2].text[7:-7])"""
-    # print(len(results))
-    """response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup.prettify())
-    soup.findAll('a')"""
-    #accounts()
-    # create_table(connection,"accounts")
-    # create_db_connection('localhost', 'root', '', 'storage')
-    #holderspage()
     #countries.remove("GR")
     #countries.remove("BG")
     #url='https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91982&action=all&languageCode=en&returnURL=resultList.currentPageNumber%3D1%26installationName%3D%26accountHolder%3D%26permitIdentifier%3D%26nextList%3DNext%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR'
-    for country in countries[10:15 ]:
+    """for country in countries[10:15 ]:
         start = time.time()
         print("COUNTRY",country)
         holdercontroller([country],[])
         thistime=time.time()
-        print(f"The country {country} took ",thistime-start," seconds")
+        print(f"The country {country} took ",thistime-start," seconds")"""
     """_,_,_,compl=indholder('https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=91998&action=all&languageCode=en&returnURL=resultList.currentPageNumber%3D2%26installationName%3D%26accountHolder%3D%26permitIdentifier%3D%26nextList%3DNext%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR')
     for i in compl:
         print(i)"""
-    #holdercontroller(countries[12:],[])
+    a,b,c,d= indholder('https://ec.europa.eu/clima/ets/ohaDetails.do?accountID=90733&action=all&languageCode=en&returnURL=installationName%3D%26accountHolder%3D%26search%3DSearch%26permitIdentifier%3D%26form%3Doha%26searchType%3Doha%26currentSortSettings%3D%26mainActivityType%3D-1%26installationIdentifier%3D%26account.registryCodes%3DGR%26languageCode%3Den&registryCode=GR')
+    print(list(d))
+    holdercontroller(['AT'],[])
     # #countriestable(connection)
     #for account in accounts:
     #    accountaddition(account)

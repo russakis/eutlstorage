@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 from main import ignite,execute_query,create_server_connection,createcountrydic,cleanitem
 import time
+from utilityfuncs import *
 
 def exploration():
     startingurl='https://ec.europa.eu/clima/ets'
@@ -52,54 +53,47 @@ def exploration():
 
 
 def indaccount(url):
-    while True:
+    while True:#catching exceptions during execution
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.text, 'html.parser')
             results=soup.find_all("span",attrs={'class':'classictext'})
             temp=[item.string for item in results]
-            #temp=[item.string[7:-6] for item in results]
-            temp2=[]
+            information=[]
         except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
             print("found an exception")
             continue
         break
     for item in temp:
         item=cleanitem(item)
-        if item!="":temp2.append(item)
-        else: temp2.append("NULL")
-    missingboi=soup.find_all("span",attrs={'class':'resultlink'})
-    if missingboi!=[]:
+        information.append(item if item!="" else "NULL")
+    thirdcolumn=soup.find_all("span",attrs={'class':'resultlink'})
+    if thirdcolumn!=[]:
         try:
-            temp2= temp2[:2]+[missingboi[0].string[7:-6]]+temp2[2:]
+            information= information[:2]+[missingboi[0].string[7:-6]]+information[2:]
         except IndexError:
-            temp2=temp2[:2]+[""]+temp2[2:]
+            information=information[:2]+[""]+information[2:]
     results= soup.find_all("font",attrs={'class':'bordertbheadfont'})
-    name=results[0].getText()[31:]
-    name=name.replace('\r','')
-    name=name.replace('\n','')
-    name=name.replace('\xa0','')
-    name = name.replace('\t', '').rstrip()
-    #temp2[1]=abbrs[countries.index(temp2[1])]
-    if temp2[6]=="Null":temp2[6]="1941-09-09 00:00:00.0"
+    name=cleanitem(results[0].getText()[31:])
+    if information[6]=="Null":information[6]="1941-09-09 00:00:00.0"
     someresults = soup.find_all("span", attrs={'class': 'titlelist'})
     try:
         if len(someresults) == 20:
-            temp2[16]=countrydic[temp2[16]]#turning country names to two character identifiers
-        else: temp2[15]=countrydic[temp2[15]]
+            information[16]=countrydic[information[16]]#turning country names to two character identifiers
+        else: information[15]=countrydic[information[15]]
     except:
         if len(someresults) == 20:
-            print(temp2[15],temp2[16])
-            temp2[16]="AV"
+            print(information[15],information[16])
+            information[16]="AV"#stands for avalon, the placeholder for uknown country
         else:
-            print(temp2[14],temp2[15])
-            temp2[15]="AV"
+            print(information[14],information[15])
+            information[15]="AV"
     if len(someresults)==20:
-        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing,commitment)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6],temp2[7])
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18],temp2[19])
+        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing,commitment)=(name,information[10],information[2],information[0],countrydic[information[1]],information[4],information[5],information[6],information[7])
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(information[3],information[8],information[11],information[12],information[13],information[14],information[15],information[16],information[17],information[18],information[19])
     else:
-        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing,commitment) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6],"NULL")
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18])
+        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing,commitment) = (name, information[9],information[2], information[0], countrydic[information[1]], information[4], information[5], information[6],"NULL")
+        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(information[3],information[7],information[10],information[11],information[12],information[13],information[14],information[15],information[16],information[17],information[18])
     return holderspecs,specs,acctype
 
 def accountresults(url):
@@ -332,12 +326,15 @@ if __name__ == '__main__':
     code=holderaddition(one)
     want=accountaddition(two,code)
     print(want)"""
-    for country in countries[9:15]:
+
+    """for country in countries[9:15]:
         start = time.time()
         print("COUNTRY", country)
         controller([country], [])
         thistime = time.time()
-        print(f"The country {country} took ", thistime - start, " seconds")
+        print(f"The country {country} took ", thistime - start, " seconds")"""
+    l=[i for i in range(5)]
+    print(l[:2]+l[2:])
     #print(len(accounts))
     #print(accounts[0])
     #row="('20 - Centrale énergétique (Dupont de Nemours)', 'Account holder', 'Former Operator Holding Account', 'closed', 'Luxembourg', '2006-06-08 00:00:00.0', '2014-06-30 10:41:05.0', '')"
