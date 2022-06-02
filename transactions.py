@@ -2,148 +2,11 @@ import requests
 #import urllib.request
 from bs4 import BeautifulSoup
 #import re
-from main import ignite,execute_query,create_server_connection,createcountrydic,cleanitem
 #from accounts import indaccount,accountaddition,holderaddition,addaccount,addholder
 import time
 import itertools
 from utilityfuncs import *
-
-def indaccount(url):
-    while True:
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            results=soup.find_all("span",attrs={'class':'classictext'})
-            temp=[item.string for item in results]
-            #temp=[item.string[7:-6] for item in results]
-            temp2=[]
-        except requests.exceptions.ConnectionError or requests.exceptions.ReadTimeout:
-            print("found an exception")
-            continue
-        break
-    for item in temp:
-        item=cleanitem(item)
-        if item!="":temp2.append(item)
-        else: temp2.append("NULL")
-    missingboi=soup.find_all("span",attrs={'class':'resultlink'})
-    if missingboi!=[]:
-        try:
-            temp2= temp2[:2]+[missingboi[0].string[7:-6]]+temp2[2:]
-        except IndexError:
-            temp2=temp2[:2]+[""]+temp2[2:]
-    results= soup.find_all("font",attrs={'class':'bordertbheadfont'})
-    name=results[0].getText()[31:]
-    name=name.replace('\r','')
-    name=name.replace('\n','')
-    name=name.replace('\xa0','')
-    name = name.replace('\t', '').rstrip()
-    #temp2[1]=abbrs[countries.index(temp2[1])]
-    if temp2[6]=="Null":temp2[6]="1941-09-09 00:00:00.0"
-    someresults = soup.find_all("span", attrs={'class': 'titlelist'})
-    try:
-        if len(someresults) == 20:
-            temp2[16]=countrydic[temp2[16]]#turning country names to two character identifiers
-        else: temp2[15]=countrydic[temp2[15]]
-    except:
-        if len(someresults) == 20:
-            print(temp2[15],temp2[16])
-            temp2[16]="AV"
-        else:
-            print(temp2[14],temp2[15])
-            temp2[15]="AV"
-    if temp2[0]=="NULL":temp2[0]="Undefined Account Type"
-    if len(someresults)==20:
-        specs = (nickname,accname,id,acctype,country,accstatus,accopening,accclosing,commitment)=(name,temp2[10],temp2[2],temp2[0],countrydic[temp2[1]],temp2[4],temp2[5],temp2[6],temp2[7])
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[8],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18],temp2[19])
-    else:
-        specs = (nickname, accname,id, acctype, country, accstatus, accopening, accclosing,commitment) = (name, temp2[9],temp2[2], temp2[0], countrydic[temp2[1]], temp2[4], temp2[5], temp2[6],"NULL")
-        holderspecs = (holdername,compno,legalid,address,address2,zipcode,city,registry,tel1,tel2,email)=(temp2[3],temp2[7],temp2[10],temp2[11],temp2[12],temp2[13],temp2[14],temp2[15],temp2[16],temp2[17],temp2[18])
-    return holderspecs,specs,acctype
-
-def holderaddition(row):
-    (holdername, compno, legalid, address, address2, zipcode, city, country, tel1, tel2, email) = row
-    global connection
-    query = 'SELECT COUNT(*) FROM Holders;'
-    cursor = connection.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()[0][0]
-    rawCode = result + 1
-    query = f'SELECT rawCode FROM HOLDERS WHERE holdername = \"{holdername}\"'
-    cursor = connection.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()
-    if result == []:  # if there exists no entry for that company number we move to create one
-        wanted = [f"{rawCode}"] + [row[i] for i in range(11)]
-        wantedstr = ""
-        for element in wanted:
-            if element == "NULL":
-                wantedstr += f"{element},"
-            else:
-                wantedstr += "\"" + element + "\","
-        wantedstr = "(" + wantedstr[:-1] + ")"
-        # wantedstr = f"({wanted[0]},\"{wanted[1]}\",\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
-        #            f",\"{wanted[11]}\")"
-        addholder(connection, wantedstr)
-        return rawCode
-    else:  # otherwise return the rawCode so as to insert new account/aircraft
-        return result[0][0]
-
-def accountaddition(row,code):
-    (alias, accname, id, acctype, country, accstatus, accopening, accclosing,commitmentperiod)=row
-    global connection
-    query = 'SELECT COUNT(*) FROM Accounts;'
-    cursor = connection.cursor()
-    cursor.execute(query)
-    result = cursor.fetchall()[0][0]
-    # result = int(execute_query(connection,query)[0][0])
-    accountcounter = result + 1
-    wanted = [f"{accountcounter}", f"{code}"] + [row[i] for i in range(len(row))]
-    if wanted[4]=="NULL":
-        wanted[4]="no ID"
-    # for i in [7, 8]: #due to issues with inserting null into date field, i've chosen to insert a seemingly random date instead
-    #    if wanted[i] == "NULL":
-    #        wanted[i] = "1941-09-09"
-    wantedstr = ""
-    for element in wanted:
-        element=element.replace("\"","\\\"")
-        element=element.replace("\'","\\\'")
-
-        if element == "NULL" or element.isnumeric():
-            wantedstr += f"{element},"
-        else:
-            wantedstr += "\'" + element + "\',"
-    wantedstr = "(" + wantedstr[:-1] + ")"
-    extra=[]
-    for i in [2,10,8,9]:
-        element=wanted[i].replace("\"","\\\"")
-        extra.append(element.replace("\'","\\\'"))
-    # wantedstr = f"({wanted[0]},{wanted[1]},\"{wanted[2]}\",\"{wanted[3]}\",\"{wanted[4]}\",\"{wanted[5]}\",\"{wanted[6]}\",\"{wanted[7]}\",\"{wanted[8]}\",\"{wanted[9]}\",\"{wanted[10]}\"" \
-    #            f",\"{wanted[11]}\",{wanted[12]},{wanted[13]},\"{wanted[14]}\",\"{wanted[15]}\",\"{wanted[16]}\",\"{wanted[17]}\",\"{wanted[18]}\",\"{wanted[19]}\",\"{wanted[20]}\"," \
-    #            f"{wanted[21]},\"{wanted[22]}\")"
-    # insert into Accounts (rawCode,holdercode, nickname,typeofaccount, installationname,installationID,permitid,permitentry,permitexpiry,subsidiary,parent,eprtr,firstyear,finalyear,address,address2,zipcode,city,country,latitude, longitude,mainactivity,status)
-    addaccount(connection, wantedstr,extra)
-    return wanted
-
-def addholder(connection,attributes):
-    sql = f"""
-        INSERT IGNORE INTO Holders
-        (rawCode,holdername,companyno,legalid,address,address2,zipcode,city,country,tel,tel2,email)
-        VALUES {attributes};"""
-    execute_query(connection, sql)
-
-def addaccount(connection,attributes,extra):
-    for i in range(len(extra)):
-        if extra[i]!="NULL":extra[i]=f"\'{extra[i]}\'"
-    sql = f"""
-        INSERT IGNORE INTO Accounts
-        (rawCode,holdercode, alias, accname, id, typeofaccount, country, status, accopening, accclosing,commitmentperiod)
-        VALUES {attributes};"""
-    execute_query(connection, sql)
-
-def accountcontroller(url):
-    result, instresult, acctype = indaccount(url)
-    code=holderaddition(result)
-    accountaddition(instresult,code)
+from accounts import addaccount,addholder,indaccount,holderaddition,accountaddition
 
 
 def extractaccdetails(url):
@@ -207,19 +70,22 @@ def transactions(url):
     results = [cleanitem(item.string) for item in temp]
     temp = soup.find_all("a", attrs={'class': 'listlink'})
     if len(temp)!=0:
-        links = [startingurl+i["href"][11:] for i in temp][1:]
-        for i in range(len(results)):
+        #links = [startingurl+i["href"][11:] for i in temp][1:] #the hyperlinks for the transaction details
+        links = [i["href"] for i in temp[1:]]
+        for i in range(len(results)):#here we changing the countries to their 2letter-abbreviation
             if i%15==4 or i%15==9:
                 results[i]=countrydic[results[i]]
-        transactions=[]
+        transactions=[] #we store the transactions found in the page we explore
         for i in range(len(results)//15):
             rowlen=15#len(results)//20
-            transactions.append([results[rowlen*i+j] for j in range(rowlen)])
+            transactions.append([results[rowlen*i+j] for j in range(rowlen)]) #they are stored
         transrows=[]
         transdetails=[]
+        alllinks=[]
         for row in range(len(transactions)):
             details,acclinks,aliases = transactiondetails(links[row])
             transdetails.append(details)
+            alllinks.append(acclinks)
             if transactions[row][6]=="NULL":
                 transactions[row][6]=aliases[0]
                 transactions[row][8]=extractaccdetails(acclinks[0])
@@ -244,10 +110,11 @@ def transactions(url):
             row = transactions[i]
             if row[6]=='NULL':
                 print("youse an idiot")
-            addtransaction(transrows[i])
+            addtransaction(transrows[i],alllinks[i])
             #transactiondetails(links[i])
         for details in transdetails:
             for detail in details:
+                "asdf"
                 adddetails(detail)
     print(time.time()-starttime)
     return transactions
@@ -264,18 +131,18 @@ def transactiondetails(url):
     temp = soup.find_all("span", attrs={'class': 'classictext'})
     normalfields=[cleanitem(item.string) for item in temp]
     temp2 = soup.find_all("span", attrs={'class': 'resultlink'})
-    linkfields = [cleanitem(item.string) for item in temp2]
+    linkfields = [cleanitem(item.string) for item in temp2]#the names of the accounts
     temp22 = soup.find_all("a", attrs={'class': 'resultlink'})
-    links = [item["href"] for item in temp22]
-    urls=[startingurl + item[11:] for item in links[:2]]
-    for url in urls:
-        accountcontroller(url)
+    links = [item["href"] for item in temp22]#all the links of the page
+    urls=[item for item in links[:2]] #the first two links of the page where the two links we care about are
+    #for url in urls:
+    #    accountcontroller(url)
     temp3 = soup.find_all("input", attrs={'class': 'formTextboxDisabled'})
     upperfields = [item["value"] for item in temp3]
     rows=[]
     for i in range((len(temp)+len(temp2))//12):
         rows.append(upperfields+[normalfields[j] for j in range(10*i,10*i+4)]+[linkfields[i*2]]+[normalfields[i*10 +4]]+[linkfields[i*2+1]]+[normalfields[j] for j in range(10*i+5,10*i+10)])
-    return rows,[startingurl+ item[11:] for item in links[:2]],linkfields[:2]
+    return rows,urls,linkfields[:2]
     for row in rows:
         adddetails(row)
 
@@ -295,7 +162,7 @@ def adddetails(row):
             """
     execute_query(connection,sql)
 
-def addtransaction(row):
+def addtransaction(row,links):
     #(transid,trantype,transdate,status,transferringregistry,transferringacctype,transferringaccname,transferringid,transferringaccholder,acquiringregistry,acquiringtype,acquiringaccname,acquiringid,acquiringaccholder,nbofunits)=row
     global connection
     attributes=row
@@ -311,8 +178,32 @@ def addtransaction(row):
                 INSERT INTO Transactions (transid,trantype,transdate,status,transferringregistry,transferringacctype,transferringaccname,transferringid,transferringaccholder,acquiringregistry,acquiringtype,acquiringaccname,acquiringid,acquiringaccholder,nbofunits)
                 VALUES {attributes};
                 """
-    execute_query(connection, sql)
+    cursor = connection.cursor()
+    try:
+        cursor.execute(sql)
+        connection.commit()
+        print("Query successful")
+    except Error as err:
+        er = f'{err}'
+        if er.split(":")[0]=="1452 (23000)":
+            print("Error 1452: Not registered account, going to register it now and retry")
+            for link in links:
+                result, instresult, acctype = indaccount(link)
+                code = holderaddition(connection,result)
+                accountaddition(connection,list(instresult.keys()), list(instresult.values()),code)
+            addtransaction(row,links)
+        else:
+            print(f"Error: '{err}'")
+            return "ERROR"
     return attributes
+
+def alltransactions(start,end):
+    for comb in combs[start:end]:
+        start = time.time()
+        print("Combination of Countries", comb)
+        transcontroller([comb], [])
+        thistime = time.time()
+        print(f"The combination {comb} took ", thistime - start, " seconds")
 
 if __name__ == '__main__':
     startingurl = 'https://ec.europa.eu/clima/ets'
@@ -321,7 +212,7 @@ if __name__ == '__main__':
     accountcounter = 1
     connection = create_server_connection('localhost', 'root', '')
     ignite(connection, "EUTL")
-    countrydic = createcountrydic(connection)
+    #countrydic = createcountrydic(connection)
     triedandtrue = []
     # for abb in abbrs:
     #    url=f'https://ec.europa.eu/clima/ets/account.do?languageCode=en&account.registryCodes={abb}&accountHolder=&search=Search&searchType=account&currentSortSettings=&resultList.currentPageNumber=1'
@@ -329,15 +220,7 @@ if __name__ == '__main__':
     countries = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'EU', 'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT',
                  'LV', 'LI', 'LT', 'LU', 'MT', 'NL', 'XI', 'NO', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB']
     combs = list(itertools.product(*[countries,countries]))
-    print(combs)
-    #transcontroller([combs[170]],[i for i in range(350,687)])
-    """for comb in combs:
-        print("combination pair",comb)
-        start=time.time()
-        transcontroller([comb],[])
-        end=time.time()-start
-        print(end, " seconds")"""
-    transcontroller([combs[13]], [])
-    #url='https://ec.europa.eu/clima/ets/transaction.do?languageCode=en&startDate=&endDate=&transactionStatus=4&fromCompletionDate=&toCompletionDate=&transactionID=&transactionType=-1&suppTransactionType=-1&originatingRegistry=GR&destinationRegistry=GR&originatingAccountType=-1&destinationAccountType=-1&originatingAccountIdentifier=&destinationAccountIdentifier=&originatingAccountHolder=&destinationAccountHolder=&currentSortSettings=&resultList.currentPageNumber=232&nextList=Next%3E'
-    #transactions(url)
-
+    print(len(combs))
+    print(combs[1088])
+    #transcontroller([combs[1088]],[i for i in range(1055,4311)])
+    #alltransactions(1079 ,1089)
